@@ -18,13 +18,11 @@ class RegisteruserScreen extends StatefulWidget {
 class _RegisteruserScreenState extends State<RegisteruserScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  final _notesController = TextEditingController();
   final _departmentController = TextEditingController();
   final _positionController = TextEditingController();
 
@@ -45,13 +43,11 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _notesController.dispose();
     _departmentController.dispose();
     _positionController.dispose();
     super.dispose();
@@ -168,7 +164,6 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
           .doc(userCredential.user!.uid)
           .set({
             'name': _nameController.text.trim(),
-            'lastName': _lastNameController.text.trim(),
             'phone': _phoneController.text.trim(),
             'address': _addressController.text.trim(),
             'birthDate': _birthDate != null
@@ -180,7 +175,6 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
             'department': _departmentController.text.trim(),
             'position': _positionController.text.trim(),
             'photoUrl': photoUrl,
-            'notes': _notesController.text.trim(),
             'status': _status,
             'gender': _gender,
             'email': _emailController.text.trim(),
@@ -249,16 +243,6 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
     return null;
   }
 
-  String? _validateLastName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El apellido es obligatorio';
-    }
-    if (value.trim().length < 3) {
-      return 'El apellido debe tener al menos 3 caracteres';
-    }
-    return null;
-  }
-
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'El correo es obligatorio';
@@ -307,17 +291,12 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
     return null;
   }
 
+  // Departamento y puesto/cargo ya no son obligatorios
   String? _validateDepartment(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El departamento es obligatorio';
-    }
     return null;
   }
 
   String? _validatePosition(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El puesto/cargo es obligatorio';
-    }
     return null;
   }
 
@@ -456,20 +435,7 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _lastNameController,
-                            validator: _validateLastName,
-                            decoration: InputDecoration(
-                              labelText: 'Apellido(s)',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              prefixIcon: const Icon(Icons.person_outline),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                          // Apellido eliminado
                           TextFormField(
                             controller: _emailController,
                             validator: _validateEmail,
@@ -604,7 +570,7 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
                             controller: _departmentController,
                             validator: _validateDepartment,
                             decoration: InputDecoration(
-                              labelText: 'Departamento o área',
+                              labelText: 'Departamento o área (opcional)',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -618,7 +584,7 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
                             controller: _positionController,
                             validator: _validatePosition,
                             decoration: InputDecoration(
-                              labelText: 'Puesto o cargo',
+                              labelText: 'Puesto o cargo (opcional)',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -682,20 +648,7 @@ class _RegisteruserScreenState extends State<RegisteruserScreen> {
                                 .toList(),
                           ),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _notesController,
-                            decoration: InputDecoration(
-                              labelText: 'Notas o descripción',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              prefixIcon: const Icon(Icons.note),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                            maxLines: 2,
-                          ),
-                          const SizedBox(height: 16),
+                          // Notas eliminadas
                           DropdownButtonFormField<String>(
                             value: _selectedRol,
                             decoration: InputDecoration(

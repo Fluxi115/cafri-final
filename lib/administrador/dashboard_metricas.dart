@@ -2,6 +2,106 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+class DashboardMetricasActividadesConFiltro extends StatefulWidget {
+  final String? titulo;
+
+  const DashboardMetricasActividadesConFiltro({super.key, this.titulo});
+
+  @override
+  State<DashboardMetricasActividadesConFiltro> createState() =>
+      _DashboardMetricasActividadesConFiltroState();
+}
+
+class _DashboardMetricasActividadesConFiltroState
+    extends State<DashboardMetricasActividadesConFiltro> {
+  String? _usuarioIdSeleccionado;
+  List<Map<String, String>> _usuarios = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarUsuarios();
+  }
+
+  Future<void> _cargarUsuarios() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .orderBy('name')
+        .get();
+
+    setState(() {
+      _usuarios = snapshot.docs
+          .map(
+            (doc) => {
+              'id': doc.id,
+              'nombre': doc['name']?.toString() ?? '',
+              'apellido': doc['lastName']?.toString() ?? '',
+            },
+          )
+          .where((u) => u['nombre']!.isNotEmpty && u['apellido']!.isNotEmpty)
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Busca el usuario seleccionado (si hay)
+    final usuarioSeleccionado = _usuarios.firstWhere(
+      (u) => u['id'] == _usuarioIdSeleccionado,
+      orElse: () => {},
+    );
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filtro de usuario
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _usuarioIdSeleccionado,
+                    hint: const Text('Filtrar por usuario'),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('Todos los usuarios'),
+                      ),
+                      ..._usuarios.map((usuario) {
+                        return DropdownMenuItem<String>(
+                          value: usuario['id'],
+                          child: Text(
+                            '${usuario['nombre']} ${usuario['apellido']}',
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: (usuarioId) {
+                      setState(() {
+                        _usuarioIdSeleccionado = usuarioId;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Dashboard filtrado (sin Expanded)
+          DashboardMetricasActividades(
+            nombre: usuarioSeleccionado['nombre'],
+            apellido: usuarioSeleccionado['apellido'],
+            titulo: widget.titulo,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// El widget DashboardMetricasActividades permanece igual que en tu código original
 class DashboardMetricasActividades extends StatelessWidget {
   final String? nombre;
   final String? apellido;
