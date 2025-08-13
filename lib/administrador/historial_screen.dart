@@ -16,9 +16,17 @@ class _HistorialActividadesScreenState
   DateTime? _fechaFin;
   String? _colaboradorSeleccionado;
   String? _tipoSeleccionado;
+  String? _estadoSeleccionado;
 
   List<String> _colaboradores = [];
   List<String> _tipos = [];
+  final List<String> _estados = [
+    'pendiente',
+    'aceptada',
+    'en_proceso',
+    'pausada',
+    'terminada',
+  ];
 
   @override
   void initState() {
@@ -29,7 +37,6 @@ class _HistorialActividadesScreenState
   Future<void> _cargarColaboradoresYTipos() async {
     final snapshot = await FirebaseFirestore.instance
         .collection('actividades')
-        .where('estado', isEqualTo: 'terminada')
         .get();
 
     final colaboradoresSet = <String>{};
@@ -64,10 +71,17 @@ class _HistorialActividadesScreenState
         data['tipo'] != _tipoSeleccionado) {
       return false;
     }
+    if (_estadoSeleccionado != null &&
+        _estadoSeleccionado!.isNotEmpty &&
+        data['estado'] != _estadoSeleccionado) {
+      return false;
+    }
     return true;
   }
 
   void _mostrarDetallesActividad(Map<String, dynamic> data) {
+    final horarios = data['horarios'] as Map<String, dynamic>?;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -89,7 +103,7 @@ class _HistorialActividadesScreenState
               _detalle('Ubicación', data['ubicacion']),
               _detalle('Latitud', data['lat']?.toString()),
               _detalle('Longitud', data['lng']?.toString()),
-              _detalle('Estado', data['estado']),
+              _detalle('Estado', _estadoLegible(data['estado'])),
               _detalle(
                 'Creado',
                 data['creado'] != null
@@ -98,6 +112,53 @@ class _HistorialActividadesScreenState
                       ).format((data['creado'] as Timestamp).toDate())
                     : '',
               ),
+              if (horarios != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Historial de cambios de estado:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.indigo,
+                        ),
+                      ),
+                      _horarioEstado(
+                        'Aceptada',
+                        horarios,
+                        'aceptada',
+                        Colors.blue,
+                      ),
+                      _horarioEstado(
+                        'Iniciada',
+                        horarios,
+                        'iniciada',
+                        Colors.orange,
+                      ),
+                      _horarioEstado(
+                        'Pausada',
+                        horarios,
+                        'pausada',
+                        Colors.deepOrange,
+                      ),
+                      _horarioEstado(
+                        'Reanudada',
+                        horarios,
+                        'reanudada',
+                        Colors.green,
+                      ),
+                      _horarioEstado(
+                        'Terminada',
+                        horarios,
+                        'terminada',
+                        Colors.purple,
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -105,6 +166,61 @@ class _HistorialActividadesScreenState
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String? _formatearHorario(Map<String, dynamic>? horarios, String campo) {
+    if (horarios == null || horarios[campo] == null) return null;
+    final ts = horarios[campo];
+    DateTime? dt;
+    if (ts is Timestamp) {
+      dt = ts.toDate();
+    } else if (ts is DateTime) {
+      dt = ts;
+    }
+    if (dt == null) return null;
+    return DateFormat('dd/MM/yyyy – HH:mm').format(dt);
+  }
+
+  Widget _horarioEstado(
+    String label,
+    Map<String, dynamic> horarios,
+    String campo,
+    Color color,
+  ) {
+    final hora = _formatearHorario(horarios, campo);
+    final Color activeColor = color;
+    final Color inactiveColor = color.withAlpha((0.2 * 255).toInt());
+    final Color textInactiveColor = Colors.black87.withAlpha(
+      (0.4 * 255).toInt(),
+    );
+    final Color textLabelColor = color.withAlpha((0.5 * 255).toInt());
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Icon(
+            Icons.access_time,
+            size: 16,
+            color: hora != null ? activeColor : inactiveColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: hora != null ? activeColor : textLabelColor,
+            ),
+          ),
+          Text(
+            hora ?? '(sin asignar)',
+            style: TextStyle(
+              color: hora != null ? Colors.black87 : textInactiveColor,
+            ),
           ),
         ],
       ),
@@ -125,13 +241,47 @@ class _HistorialActividadesScreenState
     );
   }
 
+  Color _estadoColor(String estado) {
+    switch (estado) {
+      case 'pendiente':
+        return Colors.orange;
+      case 'aceptada':
+        return Colors.blue;
+      case 'en_proceso':
+        return Colors.amber;
+      case 'pausada':
+        return Colors.deepOrange;
+      case 'terminada':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _estadoLegible(String? estado) {
+    switch (estado) {
+      case 'pendiente':
+        return 'Pendiente';
+      case 'aceptada':
+        return 'Aceptada';
+      case 'en_proceso':
+        return 'En proceso';
+      case 'pausada':
+        return 'Pausada';
+      case 'terminada':
+        return 'Terminada';
+      default:
+        return estado ?? '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Historial de actividades terminadas'),
+        title: const Text('Historial de actividades'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -257,6 +407,29 @@ class _HistorialActividadesScreenState
                             });
                           },
                         ),
+                        // Estado de actividad
+                        DropdownButton<String>(
+                          value: _estadoSeleccionado,
+                          hint: const Text('Estado'),
+                          dropdownColor: Colors.white,
+                          items: [
+                            const DropdownMenuItem(
+                              value: null,
+                              child: Text('Todos'),
+                            ),
+                            ..._estados.map(
+                              (e) => DropdownMenuItem(
+                                value: e,
+                                child: Text(_estadoLegible(e)),
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _estadoSeleccionado = value;
+                            });
+                          },
+                        ),
                         // Botón limpiar filtros
                         IconButton(
                           icon: const Icon(Icons.clear),
@@ -267,6 +440,7 @@ class _HistorialActividadesScreenState
                               _fechaFin = null;
                               _colaboradorSeleccionado = null;
                               _tipoSeleccionado = null;
+                              _estadoSeleccionado = null;
                             });
                           },
                         ),
@@ -281,7 +455,7 @@ class _HistorialActividadesScreenState
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('actividades')
-                      .where('estado', isEqualTo: 'terminada')
+                      .orderBy('fecha', descending: true)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -290,7 +464,7 @@ class _HistorialActividadesScreenState
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                       return const Center(
                         child: Text(
-                          'No hay actividades terminadas.',
+                          'No hay actividades registradas.',
                           style: TextStyle(fontSize: 18, color: Colors.white),
                         ),
                       );
@@ -358,6 +532,7 @@ class _HistorialActividadesScreenState
                               final data = doc.data() as Map<String, dynamic>;
                               final fecha = (data['fecha'] as Timestamp)
                                   .toDate();
+                              final estado = data['estado'] ?? '';
                               return Card(
                                 elevation: 6,
                                 margin: const EdgeInsets.symmetric(vertical: 6),
@@ -367,14 +542,16 @@ class _HistorialActividadesScreenState
                                 ),
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: Colors.indigo[100],
+                                    backgroundColor: _estadoColor(
+                                      estado,
+                                    ).withAlpha(60),
                                     child: Icon(
                                       data['tipo'] == 'levantamiento'
                                           ? Icons.assignment
                                           : data['tipo'] == 'mantenimiento'
                                           ? Icons.build
                                           : Icons.settings_input_component,
-                                      color: Colors.indigo,
+                                      color: _estadoColor(estado),
                                     ),
                                   ),
                                   title: Text(
@@ -383,13 +560,26 @@ class _HistorialActividadesScreenState
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    DateFormat(
-                                      'dd/MM/yyyy – HH:mm',
-                                    ).format(fecha),
-                                    style: const TextStyle(
-                                      color: Colors.black54,
-                                    ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        DateFormat(
+                                          'dd/MM/yyyy – HH:mm',
+                                        ).format(fecha),
+                                        style: const TextStyle(
+                                          color: Colors.black54,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Estado: ${_estadoLegible(estado)}',
+                                        style: TextStyle(
+                                          color: _estadoColor(estado),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   trailing: Text(
                                     data['tipo']?.toString().toUpperCase() ??

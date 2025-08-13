@@ -1,3 +1,4 @@
+//
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:typed_data';
@@ -24,8 +25,11 @@ class HojaServicioData {
       TextEditingController();
   final TextEditingController descripcionTrabajoRealizadoController =
       TextEditingController();
+  final TextEditingController materialUtilizadoController =
+      TextEditingController(); // NUEVO
+  final TextEditingController observacionesController =
+      TextEditingController(); // NUEVO
 
-  // Cambios aquí: ahora son listas de imágenes y un solo controlador de descripción por sección
   final List<Uint8List> fotosMantenimientoInicio = [];
   final List<Uint8List> fotosMantenimientoProceso = [];
   final List<Uint8List> fotosMantenimientoFin = [];
@@ -71,6 +75,8 @@ class HojaServicioData {
     descripcionInicioController.dispose();
     descripcionProcesoController.dispose();
     descripcionFinController.dispose();
+    materialUtilizadoController.dispose(); // NUEVO
+    observacionesController.dispose(); // NUEVO
   }
 
   void clear() {
@@ -96,6 +102,8 @@ class HojaServicioData {
     descripcionProcesoController.clear();
     descripcionFinController.clear();
     imagenesEvaporadores.clear();
+    materialUtilizadoController.clear(); // NUEVO
+    observacionesController.clear(); // NUEVO
   }
 
   Map<String, dynamic> toMap() => {
@@ -106,6 +114,8 @@ class HojaServicioData {
     'serieEvaporador': serieEvaporadorController.text,
     'capacidadEvaporador': capacidadEvaporadorController.text,
     'descripcionTrabajoRealizado': descripcionTrabajoRealizadoController.text,
+    'materialUtilizado': materialUtilizadoController.text, // NUEVO
+    'observaciones': observacionesController.text, // NUEVO
     'fotosInicio': fotosMantenimientoInicio,
     'descripcionInicio': descripcionInicioController.text,
     'fotosProceso': fotosMantenimientoProceso,
@@ -296,6 +306,22 @@ class _FormularioPDFState extends State<FormularioPDF> {
                       labelText: 'Descripción del trabajo realizado',
                     ),
                     maxLines: 3,
+                  ),
+                  // NUEVO: Material utilizado
+                  TextField(
+                    controller: hoja.materialUtilizadoController,
+                    decoration: const InputDecoration(
+                      labelText: 'Material utilizado',
+                    ),
+                    maxLines: 2,
+                  ),
+                  // NUEVO: Observaciones
+                  TextField(
+                    controller: hoja.observacionesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Observaciones',
+                    ),
+                    maxLines: 2,
                   ),
                   // Firmas
                   Row(
@@ -570,7 +596,7 @@ class _FormularioPDFState extends State<FormularioPDF> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.asset(
-              "lib/assets/cafrilogo.jpg",
+              "lib/assets/cafrilogo.png",
               width: 80,
               height: 80,
               fit: BoxFit.contain,
@@ -880,7 +906,6 @@ class PdfGenerator {
   }) async {
     final pdf = pw.Document();
 
-    // Fotos en fila y una sola descripción por sección
     pw.Widget buildFotoFila(List fotos, String descripcion, String titulo) {
       if (fotos.isEmpty) {
         return pw.Column(
@@ -943,7 +968,6 @@ class PdfGenerator {
       pdf.addPage(
         pw.MultiPage(
           build: (context) => [
-            // Encabezado con logo y datos empresariales (NO MODIFICADO)
             pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
@@ -1094,6 +1118,21 @@ class PdfGenerator {
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(hoja['descripcionTrabajoRealizado'] ?? ''),
+            pw.SizedBox(height: 12),
+
+            // NUEVOS APARTADOS
+            pw.Text(
+              'Material utilizado',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
+            pw.Text(hoja['materialUtilizado'] ?? ''),
+            pw.SizedBox(height: 12),
+
+            pw.Text(
+              'Observaciones',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
+            pw.Text(hoja['observaciones'] ?? ''),
             pw.SizedBox(height: 12),
 
             pw.Row(

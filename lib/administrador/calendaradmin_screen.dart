@@ -18,7 +18,8 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  String _selectedTipo = 'levantamiento';
+  // Cambiado para que coincida con el valor de un DropdownMenuItem
+  String _selectedTipo = 'Levantamiento tecnico';
   String? _selectedColaborador;
   latlng.LatLng? _ubicacionLatLng;
   String? _ubicacionUrl;
@@ -98,7 +99,8 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {
       _selectedDate = null;
       _selectedTime = null;
-      _selectedTipo = 'levantamiento';
+      // Reiniciar con el valor correcto
+      _selectedTipo = 'Levantamiento tecnico';
       _selectedColaborador = null;
       _descripcionController.clear();
       _direccionController.clear();
@@ -116,7 +118,7 @@ class _CalendarPageState extends State<CalendarPage> {
       final fecha = (actividad['fecha'] as Timestamp).toDate();
       _selectedDate = DateTime(fecha.year, fecha.month, fecha.day);
       _selectedTime = TimeOfDay(hour: fecha.hour, minute: fecha.minute);
-      _selectedTipo = actividad['tipo'] ?? 'levantamiento';
+      _selectedTipo = actividad['tipo'] ?? 'Levantamiento tecnico';
       _selectedColaborador = actividad['colaborador'];
       _descripcionController.text = actividad['descripcion'] ?? '';
       _ubicacionUrl = actividad['ubicacion'];
@@ -292,16 +294,195 @@ class _CalendarPageState extends State<CalendarPage> {
                         },
                         items: const [
                           DropdownMenuItem(
-                            value: 'levantamiento',
-                            child: Text('Levantamiento'),
+                            value:
+                                'Desinstalación de aire acondicionado tipo mini split de aire acondicionado tipo Mini split de 2 t.r. a 3 t.r. básica',
+                            child: Text(
+                              'Desinstalación de aire acondicionado tipo mini split de aire acondicionado tipo Mini split de 2 t.r. a 3 t.r. básica',
+                            ),
                           ),
                           DropdownMenuItem(
-                            value: 'mantenimiento',
-                            child: Text('Mantenimiento'),
+                            value:
+                                'Desinstalación de aire acondicionado tipo fan & coil',
+                            child: Text(
+                              'Desinstalación de aire acondicionado tipo fan & coil',
+                            ),
                           ),
                           DropdownMenuItem(
-                            value: 'instalacion',
-                            child: Text('Instalación'),
+                            value:
+                                'Desinstalación de aire acondicionado tipo paquete',
+                            child: Text(
+                              'Desinstalación de aire acondicionado tipo paquete',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Desinstalación de aire acondicionado tipo piso techo',
+                            child: Text(
+                              'Desinstalación de aire acondicionado tipo piso techo',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Desinstalación de aire acondicionado tipo UMA',
+                            child: Text(
+                              'Desinstalación de aire acondicionado tipo UMA',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Entrega de Nevera a Cliente',
+                            child: Text('Entrega de Nevera a Cliente'),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalación de aire acondicionado tipo fan & coil',
+                            child: Text(
+                              'Instalación de aire acondicionado tipo fan & coil',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalación de aire acondicionado tipo Mini split de 1 t.r. a 1.5 t.r. básica',
+                            child: Text(
+                              'Instalación de aire acondicionado tipo Mini split de 1 t.r. a 1.5 t.r. básica',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalación de aire acondicionado tipo paquete',
+                            child: Text(
+                              'Instalación de aire acondicionado tipo paquete',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalación de aire acondicionado tipo piso techo',
+                            child: Text(
+                              'Instalación de aire acondicionado tipo piso techo',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Instalación de aire acondicionado tipo UMA',
+                            child: Text(
+                              'Instalación de aire acondicionado tipo UMA',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalacion de equipoas de aire acondicionado y tuberia',
+                            child: Text(
+                              'Instalacion de equipoas de aire acondicionado y tuberia',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalacion de forros e impermeabilizado de tuberias',
+                            child: Text(
+                              'Instalacion de forros e impermeabilizado de tuberias',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Instalacion de motor evaporador para aire acondicionado',
+                            child: Text(
+                              'Instalacion de motor evaporador para aire acondicionado',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Levantamiento tecnico',
+                            child: Text('Levantamiento tecnico'),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado tipo fan & coil',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado tipo fan & coil',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado tipo mini split',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado tipo mini split',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado tipo paquete',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado tipo paquete',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado tipo piso techo',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado tipo piso techo',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de aire acondicionado tipo UMA',
+                            child: Text(
+                              'Mantenimiento preventivo de aire acondicionado tipo UMA',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Mantenimiento preventivo de equipo de refrigeración',
+                            child: Text(
+                              'Mantenimiento preventivo de equipo de refrigeración',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Recarga de Gas refrigerante para aire acondicionado',
+                            child: Text(
+                              'Recarga de Gas refrigerante para aire acondicionado',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Reparación de equipos diversos ',
+                            child: Text('Reparación de equipos diversos '),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Reparación de fuga de aire acondicionado',
+                            child: Text(
+                              'Reparación de fuga de aire acondicionado',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Revisión de Garantía de Equipos Diversos',
+                            child: Text(
+                              'Revisión de Garantía de Equipos Diversos',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Servicio de Levantamiento Técnicos para Aire Acondicionado',
+                            child: Text(
+                              'Servicio de Levantamiento Técnicos para Aire Acondicionado',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Servicio de Mantenimiento Preventivo a Varios Equipos',
+                            child: Text(
+                              'Servicio de Mantenimiento Preventivo a Varios Equipos',
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Visita y Diagnostico de equipos de aire acondicionado',
+                            child: Text(
+                              'Visita y Diagnostico de equipos de aire acondicionado',
+                            ),
                           ),
                         ],
                       ),
@@ -717,7 +898,8 @@ class _CalendarPageState extends State<CalendarPage> {
           setState(() {
             _selectedDate = DateTime.now();
             _selectedTime = TimeOfDay.now();
-            _selectedTipo = 'levantamiento';
+            // Valor inicial corregido
+            _selectedTipo = 'Levantamiento tecnico';
             _selectedColaborador = null;
             _descripcionController.clear();
             _direccionController.clear();

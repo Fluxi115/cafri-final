@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -174,30 +176,108 @@ class _HistorialCotizacionesScreenState
                 return ListView.builder(
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
                     return Card(
                       margin: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
                       ),
-                      child: ListTile(
-                        title: Text('Folio: ${data['folio']}'),
-                        subtitle: Text(
-                          'Cliente: ${data['cliente']['nombre'] ?? ''}\nFecha: ${data['fecha'] ?? ''}',
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.picture_as_pdf,
-                            color: Colors.red,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            title: Text('Folio: ${data['folio']}'),
+                            subtitle: Text(
+                              'Cliente: ${data['cliente']['nombre'] ?? ''}\nFecha: ${data['fecha'] ?? ''}',
+                            ),
+                            onTap: () {
+                              // Puedes poner aquí el detalle expandido si lo deseas
+                            },
                           ),
-                          tooltip: 'Generar/Descargar PDF',
-                          onPressed: () async {
-                            await _generarYMostrarPDF(data);
-                          },
-                        ),
-                        onTap: () {
-                          // Aquí puedes mostrar detalles completos si lo deseas
-                        },
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              // ---- BOTÓN EDITAR ----
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.edit,
+                                  color: Colors.blue,
+                                ),
+                                tooltip: 'Editar cotización',
+                                onPressed: () {
+                                  // Aquí deberías poner la navegación a tu pantalla de editar:
+                                  // Navigator.push(context, MaterialPageRoute(
+                                  //   builder: (_) => CotizacionEditarScreen(
+                                  //     cotizacionId: doc.id,
+                                  //   ),
+                                  // ));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Aquí iría la edición de la cotización',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              // ---- BOTÓN ELIMINAR ----
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                tooltip: 'Eliminar cotización',
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text(
+                                        '¿Eliminar cotización?',
+                                      ),
+                                      content: const Text(
+                                        '¿Seguro que quieres borrar esta cotización? Esta acción no se puede deshacer.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                          ),
+                                          child: const Text('Eliminar'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    await doc.reference.delete();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Cotización eliminada'),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                              // ---- BOTÓN PDF (YA EXISTENTE) ----
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.picture_as_pdf,
+                                  color: Colors.red,
+                                ),
+                                tooltip: 'Generar/Descargar PDF',
+                                onPressed: () async {
+                                  await _generarYMostrarPDF(data);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     );
                   },

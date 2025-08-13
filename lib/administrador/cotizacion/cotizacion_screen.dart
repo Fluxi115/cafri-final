@@ -180,6 +180,10 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
     final cantidadController = TextEditingController(
       text: editarItem?.cantidad.toString() ?? '1',
     );
+    final precioController = TextEditingController(
+      text: editarItem?.precio.toStringAsFixed(2) ?? "",
+    );
+
     String? error;
     bool buscando = false;
     Map<String, dynamic>? servicioData;
@@ -213,6 +217,13 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                     .get();
                 if (query.docs.isNotEmpty) {
                   servicioData = query.docs.first.data();
+                  // Solo si no estamos editando, rellenar el precio con el precio base
+                  if (editarItem == null) {
+                    precioController.text =
+                        (servicioData!['precioMenudeo'] as num?)
+                            ?.toStringAsFixed(2) ??
+                        '';
+                  }
                 } else {
                   error = "Servicio no encontrado";
                 }
@@ -256,8 +267,15 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                   if (servicioData != null) ...[
                     const SizedBox(height: 12),
                     Text('Concepto: ${servicioData!['concepto'] ?? ''}'),
-                    Text(
-                      'Precio: \$${(servicioData!['precioMenudeo'] as num?)?.toStringAsFixed(2) ?? ''}',
+                    // CAMPO PRECIO EDITABLE
+                    TextField(
+                      controller: precioController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Precio (puede editarlo)',
+                      ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -307,8 +325,9 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                       final cantidad =
                           int.tryParse(cantidadController.text) ?? 1;
                       final precioFinal =
-                          (servicioData!['precioMenudeo'] as num?)
-                              ?.toDouble() ??
+                          double.tryParse(
+                            precioController.text.replaceAll(',', '.'),
+                          ) ??
                           0.0;
                       final conceptoFinal = servicioData!['concepto'] ?? '';
                       final codigoFinal = servicioData!['codigo'] ?? '';

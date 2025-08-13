@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/services.dart'; // Para Clipboard
+import 'package:flutter/services.dart';
+import 'dart:developer' as developer; // Added for logging
 
 class ColaboradorActividades extends StatelessWidget {
   final String userEmail;
@@ -43,6 +44,89 @@ class ColaboradorActividades extends StatelessWidget {
         return Icons.settings_input_component;
       default:
         return Icons.work_outline;
+    }
+  }
+
+  Future<void> _actualizarEstadoYHora(
+    BuildContext context,
+    String docId,
+    String nuevoEstado,
+    String subcampoHorario,
+    String mensajeExito,
+  ) async {
+    if (subcampoHorario.isEmpty) {
+      // Diagnóstico: revisar si subcampoHorario está siendo pasado vacío
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: subcampoHorario vacío')),
+      );
+      developer.log('subcampoHorario vacío', name: 'ColaboradorActividades');
+      return;
+    }
+
+    final docRef = FirebaseFirestore.instance
+        .collection('actividades')
+        .doc(docId);
+
+    try {
+      // Diagnóstico: lee antes de escribir
+      final snapshot = await docRef.get();
+      developer.log(
+        "Documento antes de update: ${snapshot.data()}",
+        name: 'ColaboradorActividades',
+      );
+
+      // Asegúrese de que el campo horarios es un objeto
+      var data = snapshot.data();
+      if (data != null &&
+          data['horarios'] != null &&
+          data['horarios'] is! Map) {
+        // Si es cualquier cosa diferente a Map, lanza error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El campo horarios no es un objeto en Firestore (puede estar mal definido).',
+            ),
+          ),
+        );
+        developer.log(
+          "El campo horarios no es un Map en Firestore. Valor encontrado: ${data['horarios'].runtimeType}",
+          name: 'ColaboradorActividades',
+        );
+        return;
+      }
+
+      // 1. Actualizamos el estado general
+      await docRef.update({'estado': nuevoEstado});
+
+      // 2. Actualizamos o creamos el subcampo horario correspondiente
+      // (Firestore debe crear horarios como {} si no existe y luego añadir el subcampo)
+      await docRef.set({
+        'horarios.$subcampoHorario': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Diagnóstico: lee después de escribir
+      final updatedSnap = await docRef.get();
+      developer.log(
+        "Documento después de set horario: ${updatedSnap.data()}",
+        name: 'ColaboradorActividades',
+      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(mensajeExito)));
+    } catch (e) {
+      // Diagnóstico: captura errores Firestore
+      developer.log(
+        'Firestore Write Error: $e',
+        name: 'ColaboradorActividades',
+        error: e,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al actualizar estado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -262,16 +346,12 @@ class ColaboradorActividades extends StatelessWidget {
                                       backgroundColor: Colors.blue,
                                     ),
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('actividades')
-                                          .doc(docId)
-                                          .update({'estado': 'aceptada'});
-                                      ScaffoldMessenger.of(
+                                      await _actualizarEstadoYHora(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Actividad aceptada'),
-                                        ),
+                                        docId,
+                                        'aceptada',
+                                        'aceptada',
+                                        'Actividad aceptada',
                                       );
                                     },
                                   ),
@@ -283,16 +363,12 @@ class ColaboradorActividades extends StatelessWidget {
                                       backgroundColor: Colors.amber,
                                     ),
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('actividades')
-                                          .doc(docId)
-                                          .update({'estado': 'en_proceso'});
-                                      ScaffoldMessenger.of(
+                                      await _actualizarEstadoYHora(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Actividad en proceso'),
-                                        ),
+                                        docId,
+                                        'en_proceso',
+                                        'iniciada',
+                                        'Actividad en proceso',
                                       );
                                     },
                                   ),
@@ -304,16 +380,12 @@ class ColaboradorActividades extends StatelessWidget {
                                       backgroundColor: Colors.deepOrange,
                                     ),
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('actividades')
-                                          .doc(docId)
-                                          .update({'estado': 'pausada'});
-                                      ScaffoldMessenger.of(
+                                      await _actualizarEstadoYHora(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Actividad pausada'),
-                                        ),
+                                        docId,
+                                        'pausada',
+                                        'pausada',
+                                        'Actividad pausada',
                                       );
                                     },
                                   ),
@@ -324,16 +396,12 @@ class ColaboradorActividades extends StatelessWidget {
                                       backgroundColor: Colors.green,
                                     ),
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('actividades')
-                                          .doc(docId)
-                                          .update({'estado': 'terminada'});
-                                      ScaffoldMessenger.of(
+                                      await _actualizarEstadoYHora(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Actividad terminada'),
-                                        ),
+                                        docId,
+                                        'terminada',
+                                        'terminada',
+                                        'Actividad terminada',
                                       );
                                     },
                                   ),
@@ -346,16 +414,12 @@ class ColaboradorActividades extends StatelessWidget {
                                       backgroundColor: Colors.amber,
                                     ),
                                     onPressed: () async {
-                                      await FirebaseFirestore.instance
-                                          .collection('actividades')
-                                          .doc(docId)
-                                          .update({'estado': 'en_proceso'});
-                                      ScaffoldMessenger.of(
+                                      await _actualizarEstadoYHora(
                                         context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Actividad reanudada'),
-                                        ),
+                                        docId,
+                                        'en_proceso',
+                                        'reanudada',
+                                        'Actividad reanudada',
                                       );
                                     },
                                   ),
