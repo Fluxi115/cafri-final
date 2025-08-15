@@ -34,6 +34,7 @@ dependencies:
   font_awesome_flutter: ^10.3.0
   printing: ^5.14.2
   open_file: ^3.2.1
+  flutter_launcher_icons: ^0.14.4
   logger: ^2.6.0
   shared_preferences: ^2.5.3
   permission_handler: ^12.0.0+1
@@ -55,3 +56,9 @@ flutter:
   uses-material-design: true
   assets:
     - lib/assets/
+
+# --- Agrega esta sección para configurar los íconos de la app ---
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/icon.png"
