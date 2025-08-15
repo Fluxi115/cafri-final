@@ -18,7 +18,6 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  // Cambiado para que coincida con el valor de un DropdownMenuItem
   String _selectedTipo = 'Levantamiento tecnico';
   String? _selectedColaborador;
   latlng.LatLng? _ubicacionLatLng;
@@ -27,11 +26,13 @@ class _CalendarPageState extends State<CalendarPage> {
 
   final _descripcionController = TextEditingController();
   final _direccionController = TextEditingController();
+  final _ubicacionUrlController = TextEditingController();
 
   @override
   void dispose() {
     _descripcionController.dispose();
     _direccionController.dispose();
+    _ubicacionUrlController.dispose();
     super.dispose();
   }
 
@@ -99,7 +100,6 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {
       _selectedDate = null;
       _selectedTime = null;
-      // Reiniciar con el valor correcto
       _selectedTipo = 'Levantamiento tecnico';
       _selectedColaborador = null;
       _descripcionController.clear();
@@ -107,6 +107,7 @@ class _CalendarPageState extends State<CalendarPage> {
       _ubicacionLatLng = null;
       _ubicacionUrl = null;
       _direccionManual = null;
+      _ubicacionUrlController.clear();
     });
   }
 
@@ -122,6 +123,7 @@ class _CalendarPageState extends State<CalendarPage> {
       _selectedColaborador = actividad['colaborador'];
       _descripcionController.text = actividad['descripcion'] ?? '';
       _ubicacionUrl = actividad['ubicacion'];
+      _ubicacionUrlController.text = _ubicacionUrl ?? '';
       _direccionManual = actividad['direccion_manual'] ?? '';
       _direccionController.text = _direccionManual ?? '';
       if (actividad['lat'] != null && actividad['lng'] != null) {
@@ -533,6 +535,8 @@ class _CalendarPageState extends State<CalendarPage> {
                                         'https://www.google.com/maps/search/?api=1&query=$lat,$lng';
                                     _direccionManual = _direccionController.text
                                         .trim();
+                                    _ubicacionUrlController.text =
+                                        _ubicacionUrl!;
                                   });
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
@@ -596,21 +600,36 @@ class _CalendarPageState extends State<CalendarPage> {
                       Row(
                         children: [
                           Expanded(
-                            child: _ubicacionLatLng == null
-                                ? const Text(
-                                    'Sin ubicación seleccionada',
-                                    style: TextStyle(fontSize: 16),
-                                  )
-                                : Text(
-                                    'Ubicación: ${_ubicacionLatLng!.latitude.toStringAsFixed(5)}, ${_ubicacionLatLng!.longitude.toStringAsFixed(5)}',
-                                    style: const TextStyle(fontSize: 16),
-                                  ),
+                            child: TextField(
+                              controller: _ubicacionUrlController,
+                              decoration: const InputDecoration(
+                                labelText: 'Enlace de Google Maps (opcional)',
+                                hintText:
+                                    'Pega aquí un link o selecciona ubicación',
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (val) {
+                                setStateDialog(() {
+                                  _ubicacionUrl = val.trim();
+                                  if (_ubicacionUrl != null &&
+                                      (RegExp(
+                                            r'maps\.google\.',
+                                          ).hasMatch(_ubicacionUrl!) ||
+                                          RegExp(
+                                            r'goo\.gl/maps',
+                                          ).hasMatch(_ubicacionUrl!))) {
+                                    _ubicacionLatLng = null;
+                                  }
+                                });
+                              },
+                            ),
                           ),
                           IconButton(
                             icon: const Icon(
                               Icons.location_on,
                               color: Colors.red,
                             ),
+                            tooltip: "Selecciona desde el mapa",
                             onPressed: () async {
                               final result = await Navigator.push(
                                 context,
@@ -623,6 +642,7 @@ class _CalendarPageState extends State<CalendarPage> {
                                   _ubicacionLatLng = result;
                                   _ubicacionUrl =
                                       'https://www.google.com/maps/search/?api=1&query=${result.latitude},${result.longitude}';
+                                  _ubicacionUrlController.text = _ubicacionUrl!;
                                   _direccionManual = '';
                                   _direccionController.clear();
                                 });
@@ -691,6 +711,40 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
       ),
     );
+  }
+
+  // --- FUNCION NUEVA PARA SIEMPRE ABRIR GOOGLE MAPS ---
+
+  String _construirEnlaceMaps(String ubicacion) {
+    final urlPattern = RegExp(r'^(http|https):\/\/');
+    final latLngPattern = RegExp(r'^\s*-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+\s*$');
+    final placeIdPattern = RegExp(r'^[A-Za-z0-9_-]{27}$');
+    if (urlPattern.hasMatch(ubicacion)) {
+      return ubicacion;
+    } else if (latLngPattern.hasMatch(ubicacion)) {
+      return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(ubicacion)}';
+    } else if (placeIdPattern.hasMatch(ubicacion)) {
+      return 'https://www.google.com/maps/search/?api=1&query=place_id:${Uri.encodeComponent(ubicacion)}';
+    } else {
+      return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(ubicacion)}';
+    }
+  }
+
+  Future<void> _abrirUbicacionEnMaps(
+    BuildContext context,
+    String ubicacion,
+  ) async {
+    final url = _construirEnlaceMaps(ubicacion);
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede abrir Google Maps para esta ubicación'),
+        ),
+      );
+    }
   }
 
   @override
@@ -816,10 +870,10 @@ class _CalendarPageState extends State<CalendarPage> {
                               padding: const EdgeInsets.only(top: 6),
                               child: GestureDetector(
                                 onTap: () async {
-                                  final url = actividad['ubicacion'];
-                                  if (await canLaunchUrl(Uri.parse(url))) {
-                                    await launchUrl(Uri.parse(url));
-                                  }
+                                  await _abrirUbicacionEnMaps(
+                                    context,
+                                    actividad['ubicacion'],
+                                  );
                                 },
                                 child: Row(
                                   children: const [
@@ -898,7 +952,6 @@ class _CalendarPageState extends State<CalendarPage> {
           setState(() {
             _selectedDate = DateTime.now();
             _selectedTime = TimeOfDay.now();
-            // Valor inicial corregido
             _selectedTipo = 'Levantamiento tecnico';
             _selectedColaborador = null;
             _descripcionController.clear();
@@ -906,6 +959,7 @@ class _CalendarPageState extends State<CalendarPage> {
             _ubicacionLatLng = null;
             _ubicacionUrl = null;
             _direccionManual = null;
+            _ubicacionUrlController.clear();
           });
           _mostrarDialogoActividad();
         },

@@ -56,6 +56,7 @@ class _HistorialCotizacionesScreenState
       appBar: AppBar(title: const Text('Historial de Cotizaciones')),
       body: Column(
         children: [
+          // Filtros
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -173,11 +174,13 @@ class _HistorialCotizacionesScreenState
                     child: Text('No hay cotizaciones encontradas.'),
                   );
                 }
-                return ListView.builder(
+                return ListView.separated(
                   itemCount: docs.length,
+                  separatorBuilder: (_, __) => const Divider(),
                   itemBuilder: (context, index) {
                     final doc = docs[index];
                     final data = doc.data() as Map<String, dynamic>;
+                    final total = data['total'] ?? 0.0;
                     return Card(
                       margin: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -188,16 +191,15 @@ class _HistorialCotizacionesScreenState
                           ListTile(
                             title: Text('Folio: ${data['folio']}'),
                             subtitle: Text(
-                              'Cliente: ${data['cliente']['nombre'] ?? ''}\nFecha: ${data['fecha'] ?? ''}',
+                              'Fecha: ${data['fecha'] ?? ''}\nCliente: ${data['cliente']['nombre'] ?? ''}',
                             ),
-                            onTap: () {
-                              // Puedes poner aquí el detalle expandido si lo deseas
-                            },
+                            // Puedes usar onTap para detalle expandido si lo deseas
+                            trailing: Text('\$${total.toStringAsFixed(2)}'),
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              // ---- BOTÓN EDITAR ----
+                              // BOTÓN EDITAR
                               IconButton(
                                 icon: const Icon(
                                   Icons.edit,
@@ -205,12 +207,7 @@ class _HistorialCotizacionesScreenState
                                 ),
                                 tooltip: 'Editar cotización',
                                 onPressed: () {
-                                  // Aquí deberías poner la navegación a tu pantalla de editar:
-                                  // Navigator.push(context, MaterialPageRoute(
-                                  //   builder: (_) => CotizacionEditarScreen(
-                                  //     cotizacionId: doc.id,
-                                  //   ),
-                                  // ));
+                                  // Aquí va tu navegación real
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -220,7 +217,7 @@ class _HistorialCotizacionesScreenState
                                   );
                                 },
                               ),
-                              // ---- BOTÓN ELIMINAR ----
+                              // BOTÓN ELIMINAR
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete,
@@ -264,13 +261,13 @@ class _HistorialCotizacionesScreenState
                                   }
                                 },
                               ),
-                              // ---- BOTÓN PDF (YA EXISTENTE) ----
+                              // BOTÓN PDF
                               IconButton(
                                 icon: const Icon(
                                   Icons.picture_as_pdf,
                                   color: Colors.red,
                                 ),
-                                tooltip: 'Generar/Descargar PDF',
+                                tooltip: 'Descargar PDF',
                                 onPressed: () async {
                                   await _generarYMostrarPDF(data);
                                 },
@@ -290,15 +287,14 @@ class _HistorialCotizacionesScreenState
     );
   }
 
+  // Lógica base para PDF (modifícala a tu gusto; aquí solo es demo)
   Future<void> _generarYMostrarPDF(Map<String, dynamic> data) async {
     final pdf = pw.Document();
 
     pdf.addPage(
       pw.Page(
         build: (pw.Context context) {
-          return pw.Text(
-            'Aquí va tu PDF de cotización',
-          ); // ... igual que antes ...
+          return pw.Text('Aquí va tu PDF de cotización');
         },
       ),
     );

@@ -7,14 +7,13 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
-// Modelo para los productos/servicios de la cotización
+/// Modelo para los productos/servicios de la cotización
 class CotizacionItem {
   final String codigo;
   final String descripcion;
   final int cantidad;
   final double precio;
-  final double
-  impuesto; // Porcentaje (ej. 0.16 para 16%, -0.16 para -16%, 0.0 para 0%)
+  final double impuesto; // Ej. 0.16 para 16%, -0.16 para -16%, 0.0 para 0%
 
   CotizacionItem({
     required this.codigo,
@@ -44,9 +43,9 @@ class CotizacionItem {
   }
 }
 
-// Modelo para el cliente
 class Cliente {
   final String id;
+  final String codigo;
   final String nombre;
   final String email;
   final String direccion;
@@ -55,6 +54,7 @@ class Cliente {
 
   Cliente({
     required this.id,
+    required this.codigo,
     required this.nombre,
     required this.email,
     required this.direccion,
@@ -65,6 +65,7 @@ class Cliente {
   factory Cliente.fromFirestore(String id, Map<String, dynamic> data) {
     return Cliente(
       id: id,
+      codigo: data['codigo'] ?? '',
       nombre: data['nombre'] ?? '',
       email: data['correo'] ?? '',
       direccion: data['direccion'] ?? '',
@@ -82,7 +83,7 @@ class CotizacionScreen extends StatefulWidget {
 }
 
 class _CotizacionScreenState extends State<CotizacionScreen> {
-  // Datos de la empresa
+  // ---- DATOS FIJOS DE LA EMPRESA ----
   final String direccionEmpresa =
       "C. 59k N°518 X 112 Y 114 Col. Bojorquez Cp. 97230";
   final String ciudadEmpresa = "Mérida";
@@ -91,24 +92,20 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
   final String emailEmpresa = "facturaciones@cafrimx.com";
   final String responsable = "Lic. Elizabeth Barroso";
 
-  // Datos de la cotización
+  // ---- DATOS TEMPORALES Y CONTROLADORES ----
   String? folioActual;
   String fecha = DateTime.now().toString().substring(0, 10);
   String clienteId = "";
-
-  // Controlador y variable para "Válido hasta"
   DateTime? _validoHastaDate;
   final TextEditingController _validoHastaController = TextEditingController();
+  final TextEditingController _clienteBusquedaController =
+      TextEditingController();
 
-  // Datos del cliente
   Cliente? cliente;
-  bool _isBuscandoCliente = false;
   String? _clienteError;
 
-  // Lista de productos/servicios
   List<CotizacionItem> items = [];
 
-  // Métodos para calcular totales
   double get subtotal => items.fold(0, (acc, item) => acc + item.subtotal);
   double get totalImpuestos =>
       items.fold(0, (acc, item) => acc + (item.subtotal * item.impuesto));
@@ -132,44 +129,64 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
       cliente = null;
       _clienteError = null;
       items = [];
+      _clienteBusquedaController.clear();
     });
   }
 
-  // Búsqueda de cliente por código en Firestore
-  Future<void> buscarClientePorId(String codigo) async {
-    setState(() {
-      _isBuscandoCliente = true;
-      _clienteError = null;
-      cliente = null;
-    });
+  /// Busca clientes por nombre o código que EMPIECEN con el patrón, hasta 10 resultados, evitando duplicados
+  Future<List<Cliente>> _buscarSugerenciasCliente(String pattern) async {
+    pattern = pattern.trim();
+    if (pattern.isEmpty) return [];
+    final byNombre = await FirebaseFirestore.instance
+        .collection('clientes')
+        .where('nombre', isGreaterThanOrEqualTo: pattern)
+        .where('nombre', isLessThanOrEqualTo: '$pattern\uf8ff')
+        .limit(10)
+        .get();
 
-    try {
-      final query = await FirebaseFirestore.instance
-          .collection('clientes')
-          .where('codigo', isEqualTo: codigo.trim())
-          .limit(1)
-          .get();
+    final byCodigo = await FirebaseFirestore.instance
+        .collection('clientes')
+        .where('codigo', isGreaterThanOrEqualTo: pattern)
+        .where('codigo', isLessThanOrEqualTo: '$pattern\uf8ff')
+        .limit(10)
+        .get();
 
-      if (query.docs.isNotEmpty) {
-        final doc = query.docs.first;
-        setState(() {
-          cliente = Cliente.fromFirestore(doc.id, doc.data());
-          _isBuscandoCliente = false;
-        });
-      } else {
-        setState(() {
-          _clienteError = "Cliente no encontrado";
-          _isBuscandoCliente = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _clienteError = "Error al buscar cliente: $e";
-        _isBuscandoCliente = false;
-      });
-    }
+    final vistos = <String>{};
+    final resultados = [...byNombre.docs, ...byCodigo.docs]
+        .where((doc) => vistos.add(doc.id))
+        .map((doc) => Cliente.fromFirestore(doc.id, doc.data()))
+        .toList();
+
+    return resultados;
   }
 
+  /// Autocomplete para servicios por código o concepto
+  Future<List<Map<String, dynamic>>> _buscarSugerenciasServicio(
+    String pattern,
+  ) async {
+    pattern = pattern.trim();
+    if (pattern.isEmpty) return [];
+    final byCodigo = await FirebaseFirestore.instance
+        .collection('servicios')
+        .where('codigo', isGreaterThanOrEqualTo: pattern)
+        .where('codigo', isLessThanOrEqualTo: '$pattern\uf8ff')
+        .limit(10)
+        .get();
+    final byConcepto = await FirebaseFirestore.instance
+        .collection('servicios')
+        .where('concepto', isGreaterThanOrEqualTo: pattern)
+        .where('concepto', isLessThanOrEqualTo: '$pattern\uf8ff')
+        .limit(10)
+        .get();
+    final vistos = <String>{};
+    final resultados = [
+      ...byCodigo.docs,
+      ...byConcepto.docs,
+    ].where((doc) => vistos.add(doc.id)).map((doc) => doc.data()).toList();
+    return resultados;
+  }
+
+  /// Diálogo para agregar o editar productos/servicios, ahora con Autocomplete
   Future<void> _mostrarAgregarServicioDialog({
     CotizacionItem? editarItem,
     int? editarIndex,
@@ -181,13 +198,11 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
       text: editarItem?.cantidad.toString() ?? '1',
     );
     final precioController = TextEditingController(
-      text: editarItem?.precio.toStringAsFixed(2) ?? "",
+      text: editarItem?.precio.toStringAsFixed(2) ?? '',
     );
-
     String? error;
     bool buscando = false;
     Map<String, dynamic>? servicioData;
-
     double impuestoSeleccionado = editarItem?.impuesto ?? 0.16;
 
     if (editarItem != null) {
@@ -217,7 +232,6 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                     .get();
                 if (query.docs.isNotEmpty) {
                   servicioData = query.docs.first.data();
-                  // Solo si no estamos editando, rellenar el precio con el precio base
                   if (editarItem == null) {
                     precioController.text =
                         (servicioData!['precioMenudeo'] as num?)
@@ -244,13 +258,71 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: codigoController,
-                    decoration: const InputDecoration(
-                      labelText: 'Código de servicio',
-                    ),
-                    onSubmitted: (_) => buscarServicio(),
-                    readOnly: editarItem != null,
+                  // === AUTOCOMPLETE INTEGRADO para código de servicio ===
+                  Autocomplete<Map<String, dynamic>>(
+                    optionsBuilder: (TextEditingValue textEditingValue) async {
+                      if (textEditingValue.text.trim().isEmpty) {
+                        return const Iterable<Map<String, dynamic>>.empty();
+                      }
+                      try {
+                        return await _buscarSugerenciasServicio(
+                          textEditingValue.text,
+                        );
+                      } catch (_) {
+                        return const Iterable<Map<String, dynamic>>.empty();
+                      }
+                    },
+                    displayStringForOption: (data) =>
+                        '${data['codigo'] ?? ''} - ${data['concepto'] ?? ''}',
+                    onSelected: (data) {
+                      codigoController.text = data['codigo'] ?? '';
+                      precioController.text =
+                          (data['precioMenudeo'] as num?)?.toStringAsFixed(2) ??
+                          '';
+                      setStateDialog(() {
+                        servicioData = data;
+                        error = null;
+                      });
+                    },
+                    fieldViewBuilder:
+                        (context, ctrl, focusNode, onFieldSubmitted) {
+                          if (editarItem == null) {
+                            codigoController.value = ctrl.value;
+                            return TextField(
+                              controller: ctrl,
+                              focusNode: focusNode,
+                              decoration: const InputDecoration(
+                                labelText: 'Código o nombre de servicio',
+                              ),
+                              onEditingComplete: onFieldSubmitted,
+                            );
+                          } else {
+                            return TextField(
+                              controller: codigoController,
+                              focusNode: focusNode,
+                              decoration: const InputDecoration(
+                                labelText: 'Código de servicio',
+                              ),
+                              readOnly: true,
+                            );
+                          }
+                        },
+                    optionsViewBuilder: (context, onSelected, options) {
+                      return Material(
+                        elevation: 4,
+                        child: ListView.builder(
+                          itemCount: options.length,
+                          itemBuilder: (ctx, idx) {
+                            final data = options.elementAt(idx);
+                            return ListTile(
+                              title: Text('${data['codigo'] ?? ''}'),
+                              subtitle: Text('${data['concepto'] ?? ''}'),
+                              onTap: () => onSelected(data),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   if (editarItem == null)
@@ -267,7 +339,6 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                   if (servicioData != null) ...[
                     const SizedBox(height: 12),
                     Text('Concepto: ${servicioData!['concepto'] ?? ''}'),
-                    // CAMPO PRECIO EDITABLE
                     TextField(
                       controller: precioController,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -384,13 +455,11 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
     }
   }
 
-  // Genera un folio único basado en fecha y hora
   String generarFolio() {
     final now = DateTime.now();
     return 'RC-${DateFormat('yyyyMMdd-HHmmss').format(now)}';
   }
 
-  // Guarda la cotización en Firebase y retorna el folio generado
   Future<String?> _guardarCotizacionEnFirebase() async {
     if (cliente == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -410,8 +479,9 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
         'folio': folio,
         'fecha': fecha,
         'validoHasta': _validoHastaController.text,
-        'clienteId': clienteId,
+        'clienteId': cliente?.id,
         'cliente': {
+          'codigo': cliente?.codigo,
           'nombre': cliente?.nombre,
           'email': cliente?.email,
           'direccion': cliente?.direccion,
@@ -459,7 +529,6 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
     }
   }
 
-  // Exportar a PDF y guardar cotización en Firebase
   Future<void> _exportarAPDF() async {
     final folio = await _guardarCotizacionEnFirebase();
     if (folio == null) return;
@@ -501,7 +570,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                 children: [
                   pw.Text("Fecha: $fecha"),
                   pw.Text("Folio: $folio"),
-                  pw.Text("Cliente ID: $clienteId"),
+                  pw.Text("Cliente ID: ${cliente?.id ?? ''}"),
                   pw.Text("Válido hasta: ${_validoHastaController.text}"),
                 ],
               ),
@@ -514,6 +583,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
           ),
           if (cliente != null) ...[
+            pw.Text("Código: ${cliente!.codigo}"),
             pw.Text("Nombre: ${cliente!.nombre}"),
             pw.Text("Email: ${cliente!.email}"),
             pw.Text("Dirección: ${cliente!.direccion}"),
@@ -658,8 +728,6 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
     );
 
     await Printing.layoutPdf(onLayout: (format) => pdf.save());
-
-    // Limpiar el formulario después de exportar y guardar
     _resetForm();
   }
 
@@ -672,6 +740,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ------------ ENCABEZADO EMPRESA/CLIENTE/FOLIO -----------
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -700,7 +769,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                   children: [
                     Text("Fecha: $fecha"),
                     Text("Folio: ${folioActual ?? 'Sin generar'}"),
-                    Text("Cliente ID: $clienteId"),
+                    Text("Cliente ID: ${cliente?.id ?? ''}"),
                     SizedBox(
                       width: 140,
                       child: TextField(
@@ -744,35 +813,58 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      labelText: "Código de cliente",
-                    ),
-                    onChanged: (value) {
-                      clienteId = value;
-                    },
-                    onSubmitted: (value) {
-                      buscarClientePorId(value);
+            // 🔥 AUTOCOMPLETE INTEGRATION 🔥
+            Autocomplete<Cliente>(
+              optionsBuilder: (TextEditingValue textEditingValue) async {
+                if (textEditingValue.text.trim().isEmpty) {
+                  return const Iterable<Cliente>.empty();
+                }
+                try {
+                  return await _buscarSugerenciasCliente(textEditingValue.text);
+                } catch (_) {
+                  return const Iterable<Cliente>.empty();
+                }
+              },
+              displayStringForOption: (Cliente c) =>
+                  '${c.nombre} (${c.codigo})',
+              optionsViewBuilder: (context, onSelected, options) {
+                return Material(
+                  elevation: 4,
+                  child: ListView.builder(
+                    itemCount: options.length,
+                    itemBuilder: (ctx, idx) {
+                      final c = options.elementAt(idx);
+                      return ListTile(
+                        title: Text(c.nombre),
+                        subtitle: Text(
+                          'Código: ${c.codigo}  Tel: ${c.telefono}',
+                        ),
+                        onTap: () => onSelected(c),
+                      );
                     },
                   ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _isBuscandoCliente
-                      ? null
-                      : () => buscarClientePorId(clienteId),
-                  child: _isBuscandoCliente
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text("Buscar"),
-                ),
-              ],
+                );
+              },
+              onSelected: (Cliente c) {
+                setState(() {
+                  cliente = c;
+                  _clienteBusquedaController.text = '${c.nombre} (${c.codigo})';
+                  _clienteError = null;
+                });
+              },
+              fieldViewBuilder:
+                  (context, controller, focusNode, onFieldSubmitted) {
+                    _clienteBusquedaController.value = controller.value;
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      decoration: const InputDecoration(
+                        labelText: "Busca cliente por nombre o código",
+                        prefixIcon: Icon(Icons.person_search),
+                      ),
+                      autofocus: false,
+                    );
+                  },
             ),
             if (_clienteError != null)
               Padding(
@@ -784,6 +876,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
               ),
             if (cliente != null) ...[
               const SizedBox(height: 8),
+              Text("Código: ${cliente!.codigo}"),
               Text("Nombre: ${cliente!.nombre}"),
               Text("Email: ${cliente!.email}"),
               Text("Dirección: ${cliente!.direccion}"),
@@ -791,6 +884,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
               Text("Teléfono: ${cliente!.telefono}"),
             ],
             const Divider(height: 32),
+            // ----------- PRODUCTOS/SERVICIOS DE COTIZACIÓN -----------
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(

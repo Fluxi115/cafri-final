@@ -79,9 +79,76 @@ class _HistorialActividadesScreenState
     return true;
   }
 
-  void _mostrarDetallesActividad(Map<String, dynamic> data) {
-    final horarios = data['horarios'] as Map<String, dynamic>?;
+  Widget _historialEstadosDesdeCampos(Map<String, dynamic> actividad) {
+    final estados = [
+      {'campo': 'hora_aceptada', 'label': 'Aceptada', 'color': Colors.blue},
+      {
+        'campo': 'hora_en_proceso',
+        'label': 'En proceso',
+        'color': Colors.amber,
+      },
+      {'campo': 'hora_pausada', 'label': 'Pausada', 'color': Colors.deepOrange},
+      {'campo': 'hora_terminada', 'label': 'Terminada', 'color': Colors.green},
+    ];
 
+    final historial = <Widget>[];
+    for (var est in estados) {
+      final dato = actividad[est['campo']];
+      if (dato != null) {
+        final d = dato is Timestamp ? dato.toDate() : dato;
+        historial.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2.0),
+            child: Row(
+              children: [
+                Icon(Icons.history, size: 16, color: est['color'] as Color),
+                const SizedBox(width: 6),
+                Text(
+                  '${est['label']}: ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: est['color'] as Color,
+                  ),
+                ),
+                Text(DateFormat('dd/MM/yyyy – HH:mm').format(d)),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    if (historial.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8.0),
+        child: Text(
+          'No hay historial de cambios de estado registrado.',
+          style: TextStyle(color: Colors.black54),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 12.0, bottom: 6.0),
+          child: Text(
+            'Historial de cambios de estado:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: Colors.indigo,
+            ),
+          ),
+        ),
+        ...historial,
+      ],
+    );
+  }
+
+  void _mostrarDetallesActividad(QueryDocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -112,53 +179,7 @@ class _HistorialActividadesScreenState
                       ).format((data['creado'] as Timestamp).toDate())
                     : '',
               ),
-              if (horarios != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Historial de cambios de estado:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.indigo,
-                        ),
-                      ),
-                      _horarioEstado(
-                        'Aceptada',
-                        horarios,
-                        'aceptada',
-                        Colors.blue,
-                      ),
-                      _horarioEstado(
-                        'Iniciada',
-                        horarios,
-                        'iniciada',
-                        Colors.orange,
-                      ),
-                      _horarioEstado(
-                        'Pausada',
-                        horarios,
-                        'pausada',
-                        Colors.deepOrange,
-                      ),
-                      _horarioEstado(
-                        'Reanudada',
-                        horarios,
-                        'reanudada',
-                        Colors.green,
-                      ),
-                      _horarioEstado(
-                        'Terminada',
-                        horarios,
-                        'terminada',
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                ),
+              _historialEstadosDesdeCampos(data),
             ],
           ),
         ),
@@ -166,61 +187,6 @@ class _HistorialActividadesScreenState
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String? _formatearHorario(Map<String, dynamic>? horarios, String campo) {
-    if (horarios == null || horarios[campo] == null) return null;
-    final ts = horarios[campo];
-    DateTime? dt;
-    if (ts is Timestamp) {
-      dt = ts.toDate();
-    } else if (ts is DateTime) {
-      dt = ts;
-    }
-    if (dt == null) return null;
-    return DateFormat('dd/MM/yyyy – HH:mm').format(dt);
-  }
-
-  Widget _horarioEstado(
-    String label,
-    Map<String, dynamic> horarios,
-    String campo,
-    Color color,
-  ) {
-    final hora = _formatearHorario(horarios, campo);
-    final Color activeColor = color;
-    final Color inactiveColor = color.withAlpha((0.2 * 255).toInt());
-    final Color textInactiveColor = Colors.black87.withAlpha(
-      (0.4 * 255).toInt(),
-    );
-    final Color textLabelColor = color.withAlpha((0.5 * 255).toInt());
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        children: [
-          Icon(
-            Icons.access_time,
-            size: 16,
-            color: hora != null ? activeColor : inactiveColor,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: hora != null ? activeColor : textLabelColor,
-            ),
-          ),
-          Text(
-            hora ?? '(sin asignar)',
-            style: TextStyle(
-              color: hora != null ? Colors.black87 : textInactiveColor,
-            ),
           ),
         ],
       ),
@@ -299,7 +265,6 @@ class _HistorialActividadesScreenState
         child: SafeArea(
           child: Column(
             children: [
-              // Filtros
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -321,7 +286,6 @@ class _HistorialActividadesScreenState
                       runSpacing: 8,
                       alignment: WrapAlignment.center,
                       children: [
-                        // Fecha inicio
                         OutlinedButton.icon(
                           icon: const Icon(Icons.date_range),
                           label: Text(
@@ -345,7 +309,6 @@ class _HistorialActividadesScreenState
                             }
                           },
                         ),
-                        // Fecha fin
                         OutlinedButton.icon(
                           icon: const Icon(Icons.date_range),
                           label: Text(
@@ -367,7 +330,6 @@ class _HistorialActividadesScreenState
                             }
                           },
                         ),
-                        // Colaborador
                         DropdownButton<String>(
                           value: _colaboradorSeleccionado,
                           hint: const Text('Colaborador'),
@@ -387,7 +349,6 @@ class _HistorialActividadesScreenState
                             });
                           },
                         ),
-                        // Tipo de actividad
                         DropdownButton<String>(
                           value: _tipoSeleccionado,
                           hint: const Text('Tipo'),
@@ -407,7 +368,6 @@ class _HistorialActividadesScreenState
                             });
                           },
                         ),
-                        // Estado de actividad
                         DropdownButton<String>(
                           value: _estadoSeleccionado,
                           hint: const Text('Estado'),
@@ -430,7 +390,6 @@ class _HistorialActividadesScreenState
                             });
                           },
                         ),
-                        // Botón limpiar filtros
                         IconButton(
                           icon: const Icon(Icons.clear),
                           tooltip: 'Limpiar filtros',
@@ -450,7 +409,6 @@ class _HistorialActividadesScreenState
                 ),
               ),
               const Divider(height: 1, color: Colors.white70),
-              // Lista de actividades
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
@@ -470,7 +428,6 @@ class _HistorialActividadesScreenState
                       );
                     }
 
-                    // Agrupar por colaborador
                     final actividadesPorColaborador =
                         <String, List<QueryDocumentSnapshot>>{};
                     for (var doc in snapshot.data!.docs) {
@@ -498,7 +455,6 @@ class _HistorialActividadesScreenState
                       children: actividadesPorColaborador.entries.map((entry) {
                         final colaborador = entry.key;
                         final actividades = entry.value;
-                        // Ordenar por fecha descendente
                         actividades.sort((a, b) {
                           final fa = (a['fecha'] as Timestamp).toDate();
                           final fb = (b['fecha'] as Timestamp).toDate();
@@ -589,7 +545,7 @@ class _HistorialActividadesScreenState
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  onTap: () => _mostrarDetallesActividad(data),
+                                  onTap: () => _mostrarDetallesActividad(doc),
                                 ),
                               );
                             }),

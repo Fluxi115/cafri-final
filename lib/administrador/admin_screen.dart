@@ -62,11 +62,15 @@ class _AdminScreenState extends State<AdminScreen> {
           Icons.miscellaneous_services,
           const ListarServiciosScreen(),
         ),
-        _MenuOption('Cotización', Icons.people_alt, const CotizacionScreen()),
         _MenuOption(
-          'Cotizaciones',
+          'Generar Cotización',
+          Icons.people_alt,
+          const CotizacionScreen(),
+        ),
+        _MenuOption(
+          'Descargar Cotizaciones',
           Icons.list_alt,
-          const CotizacionesListarScreen(),
+          const HistorialCotizacionesScreen(),
         ),
       ]),
       _MenuGroup('Agenda', Icons.event, [
