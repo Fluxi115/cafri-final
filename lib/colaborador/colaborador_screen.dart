@@ -154,12 +154,12 @@ class _ColaboradorScreenState extends State<ColaboradorScreen> {
               selected: selectedSection == ColaboradorSection.documento,
               onTap: () => _handleDrawerSelection(ColaboradorSection.documento),
             ),
-            ListTile(
-              leading: const Icon(Icons.map),
-              title: const Text('Mapa con ruta desde URL'),
-              selected: selectedSection == ColaboradorSection.mapa,
-              onTap: () => _handleDrawerSelection(ColaboradorSection.mapa),
-            ),
+            // ListTile(
+            //   leading: const Icon(Icons.map),
+            //   title: const Text('Mapa con ruta desde URL'),
+            //   selected: selectedSection == ColaboradorSection.mapa,
+            //   onTap: () => _handleDrawerSelection(ColaboradorSection.mapa),
+            // ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.exit_to_app, color: Colors.red),

@@ -1,4 +1,3 @@
-//
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:typed_data';
@@ -750,7 +749,7 @@ class _FormularioPDFState extends State<FormularioPDF> {
                   if (confirm != true) return;
 
                   final logoBytes = await rootBundle.load(
-                    'lib/assets/cafrilogo.jpg',
+                    'lib/assets/cafrilogo.png',
                   );
                   final logoUint8List = logoBytes.buffer.asUint8List();
 

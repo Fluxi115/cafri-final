@@ -35,10 +35,7 @@ class _AdminScreenState extends State<AdminScreen> {
   String? position;
   final AuthService _authService = AuthService();
 
-  // Estado para el contenido principal
   Widget? _mainContentWidget;
-
-  // Menú agrupado por categorías (sin "Inicio")
   late final List<_MenuGroup> _menuGroups;
 
   @override
@@ -50,7 +47,6 @@ class _AdminScreenState extends State<AdminScreen> {
       _loadUserInfo(user.uid);
     }
     _mainContentWidget = _buildMainContent();
-
     _menuGroups = [
       _MenuGroup('Usuarios', Icons.people, [
         _MenuOption('Usuarios', Icons.people, const UserListScreen()),
@@ -125,12 +121,14 @@ class _AdminScreenState extends State<AdminScreen> {
     setState(() {
       _mainContentWidget = option.screen;
     });
+    Navigator.of(context).maybePop();
   }
 
   void _goHome() {
     setState(() {
       _mainContentWidget = _buildMainContent();
     });
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _handleLogout() async {
@@ -162,6 +160,7 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Widget _buildMainContent() {
+    // ... igual al tuyo ...
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -250,26 +249,34 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   Widget _buildProfileInfo() {
-    String displayName = '';
-    if (nombre != null && nombre!.isNotEmpty) {
-      displayName = nombre!;
-    } else {
-      displayName = 'Usuario';
-    }
+    String displayName = nombre?.isNotEmpty == true ? nombre! : 'Usuario';
 
     return Row(
       children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: Colors.white,
-          backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
-              ? NetworkImage(photoUrl!)
-              : null,
-          child: photoUrl == null || photoUrl!.isEmpty
-              ? Icon(Icons.account_circle, color: Colors.indigo, size: 32)
-              : null,
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2.8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(30),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: CircleAvatar(
+            radius: 22,
+            backgroundColor: Colors.white,
+            backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
+                ? NetworkImage(photoUrl!)
+                : null,
+            child: photoUrl == null || photoUrl!.isEmpty
+                ? Icon(Icons.account_circle, color: Colors.indigo, size: 32)
+                : null,
+          ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -278,14 +285,26 @@ class _AdminScreenState extends State<AdminScreen> {
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
-                letterSpacing: 0.5,
+                fontSize: 17,
+                letterSpacing: 0.6,
+                shadows: [
+                  Shadow(
+                    color: Colors.black45,
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
               ),
             ),
             if (rol != null)
               Text(
                 rol!,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0.3,
+                ),
               ),
           ],
         ),
@@ -293,86 +312,283 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  Widget _buildDrawerMenu() {
+    return Drawer(
+      backgroundColor: Colors.grey[50],
+      child: Container(
+        decoration: const BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 22,
+              offset: Offset(1, 2),
+            ),
+          ],
+        ),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xff1d4deb), Color(0xFF374BBB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2.5),
+                    ),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      radius: 30,
+                      backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
+                          ? NetworkImage(photoUrl!)
+                          : null,
+                      child: photoUrl == null || photoUrl!.isEmpty
+                          ? Icon(
+                              Icons.account_circle,
+                              color: Colors.indigo,
+                              size: 36,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nombre ?? 'Usuario',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (rol != null)
+                          Text(
+                            rol!,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        if (userEmail.isNotEmpty)
+                          Text(
+                            userEmail,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.home, color: Colors.indigo),
+              title: const Text(
+                "Inicio",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              onTap: _goHome,
+            ),
+            ..._menuGroups.map(
+              (group) => Column(
+                children: [
+                  ExpansionTile(
+                    leading: Icon(group.icon, color: Colors.indigo),
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 6),
+                    title: Text(
+                      group.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.indigo,
+                      ),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    collapsedShape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    children: group.options
+                        .map(
+                          (option) => ListTile(
+                            leading: Icon(
+                              option.icon,
+                              color: Colors.blueGrey[800],
+                            ),
+                            title: Text(
+                              option.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onTap: () => _handleMenuSelection(option),
+                            selectedTileColor: Colors.blue.withAlpha(21),
+                            hoverColor: Colors.blue.withAlpha(26),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 18.0,
+                      right: 25,
+                      top: 4,
+                      bottom: 4,
+                    ),
+                    child: Divider(height: 5, thickness: 1),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(
+                Icons.exit_to_app,
+                color: Colors.redAccent,
+                size: 28,
+              ),
+              title: const Text(
+                'Cerrar sesión',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              onTap: _handleLogout,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool desktopWide = screenWidth > 900;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 29, 77, 235),
         elevation: 0,
+        toolbarHeight: 68,
         title: _buildProfileInfo(),
-        actions: [
-          // Botón de inicio directo
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-            icon: const Icon(Icons.home, color: Colors.white, size: 20),
-            label: const Text(
-              'Inicio',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            onPressed: _goHome,
-          ),
-          // Menú agrupado por categorías con ícono y texto
-          ..._menuGroups.map((group) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: PopupMenuButton<_MenuOption>(
-                tooltip: group.title,
-                offset: const Offset(0, 40),
-                onSelected: _handleMenuSelection,
-                itemBuilder: (context) => group.options
-                    .map(
-                      (option) => PopupMenuItem<_MenuOption>(
-                        value: option,
-                        child: Row(
-                          children: [
-                            Icon(option.icon, size: 20, color: Colors.black54),
-                            const SizedBox(width: 8),
-                            Text(option.title),
-                          ],
-                        ),
-                      ),
-                    )
-                    .toList(),
-                child: TextButton.icon(
+        actions: desktopWide
+            ? [
+                TextButton.icon(
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
-                  icon: Icon(group.icon, color: Colors.white, size: 20),
-                  label: Text(
-                    group.title,
-                    style: const TextStyle(
+                  icon: const Icon(Icons.home, color: Colors.white, size: 21),
+                  label: const Text(
+                    'Inicio',
+                    style: TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.45,
                     ),
                   ),
-                  onPressed: null, // El trigger es el PopupMenuButton
+                  onPressed: _goHome,
                 ),
-              ),
-            );
-          }),
-          // Botón de salir
-          IconButton(
-            icon: const Icon(Icons.exit_to_app, color: Colors.redAccent),
-            tooltip: 'Salir',
-            onPressed: _handleLogout,
-          ),
-        ],
+                ..._menuGroups.map((group) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: PopupMenuButton<_MenuOption>(
+                      tooltip: group.title,
+                      offset: const Offset(0, 40),
+                      onSelected: _handleMenuSelection,
+                      itemBuilder: (context) => group.options
+                          .map(
+                            (option) => PopupMenuItem<_MenuOption>(
+                              value: option,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    option.icon,
+                                    size: 20,
+                                    color: Colors.black54,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(option.title),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      child: TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        icon: Icon(group.icon, color: Colors.white, size: 20),
+                        label: Text(
+                          group.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onPressed: null,
+                      ),
+                    ),
+                  );
+                }),
+                IconButton(
+                  icon: const Icon(
+                    Icons.exit_to_app,
+                    color: Colors.redAccent,
+                    size: 28,
+                  ),
+                  tooltip: 'Salir',
+                  onPressed: _handleLogout,
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(
+                    Icons.exit_to_app,
+                    color: Colors.redAccent,
+                    size: 28,
+                  ),
+                  tooltip: 'Salir',
+                  onPressed: _handleLogout,
+                ),
+              ],
       ),
-      body: _mainContentWidget ?? _buildMainContent(),
+      drawer: desktopWide ? null : _buildDrawerMenu(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 350),
+        child: _mainContentWidget ?? _buildMainContent(),
+      ),
     );
   }
 }
 
+// Helpers
 class _MenuGroup {
   final String title;
   final IconData icon;
@@ -383,6 +599,6 @@ class _MenuGroup {
 class _MenuOption {
   final String title;
   final IconData icon;
-  final Widget? screen; // screen puede ser null para "Inicio"
+  final Widget? screen;
   const _MenuOption(this.title, this.icon, this.screen);
 }
