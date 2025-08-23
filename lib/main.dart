@@ -92,8 +92,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-//link de ubicacion
-//en hoja de servicio nota, nota y material utilizado
-//editar precios
-//hora o tiempo de las actividades

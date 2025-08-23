@@ -50,15 +50,21 @@ class _ColaboradorActividadesScreenState
     }
   }
 
-  Stream<QuerySnapshot> getActividadesColaborador(String? email) {
+  /// Solo muestra actividades asignadas de hoy, aún no terminadas.
+  Stream<QuerySnapshot> getActividadesDeHoy(String? email) {
     if (email == null) {
       return const Stream.empty();
     }
+    final ahora = DateTime.now();
+    final desde = DateTime(ahora.year, ahora.month, ahora.day, 0, 0, 0);
+    final hasta = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
+
     return FirebaseFirestore.instance
         .collection('actividades')
         .where('colaborador', isEqualTo: email)
         .where('estado', isNotEqualTo: 'terminada')
-        .orderBy('estado')
+        .where('fecha', isGreaterThanOrEqualTo: Timestamp.fromDate(desde))
+        .where('fecha', isLessThanOrEqualTo: Timestamp.fromDate(hasta))
         .orderBy('fecha')
         .snapshots();
   }
@@ -93,15 +99,20 @@ class _ColaboradorActividadesScreenState
     return Scaffold(
       appBar: AppBar(title: const Text('Mis actividades')),
       body: StreamBuilder<QuerySnapshot>(
-        stream: getActividadesColaborador(userEmail),
+        stream: getActividadesDeHoy(userEmail),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Text('Error al cargar actividades: ${snapshot.error}'),
+            );
+          }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
           final actividades = snapshot.data!.docs;
           if (actividades.isEmpty) {
             return const Center(
-              child: Text('No tienes actividades asignadas.'),
+              child: Text('No tienes actividades asignadas para hoy.'),
             );
           }
           return ListView.builder(
@@ -239,7 +250,7 @@ class _ColaboradorActividadesScreenState
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Estado: ${estado[0].toUpperCase()}${estado.substring(1).replaceAll('_', ' ')}',
+                              'Estado: ${estado.isNotEmpty ? estado[0].toUpperCase() + estado.substring(1).replaceAll('_', ' ') : ''}',
                               style: TextStyle(
                                 color: estadoColor,
                                 fontWeight: FontWeight.bold,

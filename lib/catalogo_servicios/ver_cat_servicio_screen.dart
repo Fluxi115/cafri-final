@@ -134,81 +134,88 @@ class _ListarServiciosScreenState extends State<ListarServiciosScreen> {
                       );
                     }
 
+                    // <<<<--- CAMBIO: ENVOLVER EN UN SCROLL VERTICAL TAMBIÉN
                     return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columnSpacing: 24,
-                        headingRowColor: WidgetStateProperty.all(
-                          theme.colorScheme.primary.withAlpha(20),
-                        ),
-                        columns: const [
-                          DataColumn(label: Text('Código')),
-                          DataColumn(label: Text('Concepto')),
-                          DataColumn(label: Text('Precio')),
-                          DataColumn(label: Text('Acciones')),
-                        ],
-                        rows: servicios.map((servicio) {
-                          final codigo = servicio['codigo'] ?? '';
-                          final concepto = servicio['concepto'] ?? '';
-                          final precio = servicio['precioMenudeo'] ?? 0.0;
-                          final id = servicio.id;
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 24,
+                          headingRowColor: WidgetStateProperty.all(
+                            theme.colorScheme.primary.withAlpha(20),
+                          ),
+                          columns: const [
+                            DataColumn(label: Text('Código')),
+                            DataColumn(label: Text('Concepto')),
+                            DataColumn(label: Text('Precio')),
+                            DataColumn(label: Text('Acciones')),
+                          ],
+                          rows: servicios.map((servicio) {
+                            final codigo = servicio['codigo'] ?? '';
+                            final concepto = servicio['concepto'] ?? '';
+                            final precio = servicio['precioMenudeo'] ?? 0.0;
+                            final id = servicio.id;
 
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(codigo)),
-                              DataCell(Text(concepto)),
-                              DataCell(Text('\$${precio.toStringAsFixed(2)}')),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        color: Colors.blue,
-                                      ),
-                                      tooltip: 'Editar servicio',
-                                      onPressed: () async {
-                                        final result = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                ServicioEditarScreen(
-                                                  servicioId: id,
-                                                  servicioData:
-                                                      servicio.data()
-                                                          as Map<
-                                                            String,
-                                                            dynamic
-                                                          >,
-                                                ),
-                                          ),
-                                        );
-                                        if (result == true) {
-                                          setState(() {});
-                                        }
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
-                                      ),
-                                      tooltip: 'Eliminar servicio',
-                                      onPressed: () => _borrarServicio(
-                                        context,
-                                        id,
-                                        concepto,
-                                      ),
-                                    ),
-                                  ],
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(codigo)),
+                                DataCell(Text(concepto)),
+                                DataCell(
+                                  Text('\$${precio.toStringAsFixed(2)}'),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        tooltip: 'Editar servicio',
+                                        onPressed: () async {
+                                          final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ServicioEditarScreen(
+                                                    servicioId: id,
+                                                    servicioData:
+                                                        servicio.data()
+                                                            as Map<
+                                                              String,
+                                                              dynamic
+                                                            >,
+                                                  ),
+                                            ),
+                                          );
+                                          if (result == true) {
+                                            setState(() {});
+                                          }
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        tooltip: 'Eliminar servicio',
+                                        onPressed: () => _borrarServicio(
+                                          context,
+                                          id,
+                                          concepto,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     );
+                    // <<<--- FIN DEL CAMBIO
                   },
                 ),
               ),

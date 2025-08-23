@@ -140,7 +140,6 @@ class _FormularioPDFState extends State<FormularioPDF> {
   // Campos de cliente (únicos)
   final TextEditingController campoNombreCliente = TextEditingController();
   final TextEditingController hablarcon = TextEditingController();
-  final TextEditingController identificacion = TextEditingController();
 
   // Lista dinámica de hojas (formularios)
   final List<HojaServicioData> hojas = [HojaServicioData()];
@@ -161,8 +160,90 @@ class _FormularioPDFState extends State<FormularioPDF> {
     }
     campoNombreCliente.dispose();
     hablarcon.dispose();
-    identificacion.dispose();
     super.dispose();
+  }
+
+  String? validarCamposObligatorios() {
+    // Campos de cliente
+    if (campoNombreCliente.text.trim().isEmpty) {
+      return 'Nombre del cliente es obligatorio.';
+    }
+    if (hablarcon.text.trim().isEmpty) {
+      return 'El campo "Hablar con" es obligatorio.';
+    }
+
+    // Por cada hoja
+    for (int i = 0; i < hojas.length; i++) {
+      final hoja = hojas[i];
+      final noHoja = i + 1;
+
+      if (hoja.actividadParaController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: El campo "Para" es obligatorio.';
+      }
+      if (hoja.actividadTipoTareaController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: El campo "Tipo de tarea" es obligatorio.';
+      }
+      if (hoja.descripcionTareaController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: La descripción de la tarea es obligatoria.';
+      }
+      if (hoja.modeloEvaporadorController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: El modelo del evaporador es obligatorio.';
+      }
+      if (hoja.serieEvaporadorController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: La serie del evaporador es obligatoria.';
+      }
+      if (hoja.capacidadEvaporadorController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: La capacidad del evaporador es obligatoria.';
+      }
+
+      if (hoja.imagenesEvaporadores.isEmpty) {
+        return 'Hoja $noHoja: Sube al menos 1 imagen de evaporador/condensador.';
+      }
+
+      if (hoja.fotosMantenimientoInicio.isEmpty) {
+        return 'Hoja $noHoja: Sube al menos 1 foto de inicio.';
+      }
+      if (hoja.descripcionInicioController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Escribe descripción de fotos de inicio.';
+      }
+      if (hoja.fotosMantenimientoProceso.isEmpty) {
+        return 'Hoja $noHoja: Sube al menos 1 foto de proceso.';
+      }
+      if (hoja.descripcionProcesoController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Escribe descripción de fotos de proceso.';
+      }
+      if (hoja.fotosMantenimientoFin.isEmpty) {
+        return 'Hoja $noHoja: Sube al menos 1 foto de fin.';
+      }
+      if (hoja.descripcionFinController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Escribe descripción de fotos de fin.';
+      }
+
+      if (hoja.descripcionTrabajoRealizadoController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Describe el trabajo realizado.';
+      }
+      if (hoja.materialUtilizadoController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Agrega el material utilizado.';
+      }
+      if (hoja.observacionesController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: Llena las observaciones.';
+      }
+
+      if (hoja.firmaTecnico == null) {
+        return 'Hoja $noHoja: Falta la firma del técnico.';
+      }
+      if (hoja.nombreTecnico == null || hoja.nombreTecnico!.trim().isEmpty) {
+        return 'Hoja $noHoja: Falta el nombre del técnico.';
+      }
+      if (hoja.firmaRecibe == null) {
+        return 'Hoja $noHoja: Falta la firma de quien recibe.';
+      }
+      if (hoja.nombreRecibe == null || hoja.nombreRecibe!.trim().isEmpty) {
+        return 'Hoja $noHoja: Falta el nombre de quien recibe.';
+      }
+    }
+
+    return null;
   }
 
   Future<void> _cargarFolio() async {
@@ -176,7 +257,6 @@ class _FormularioPDFState extends State<FormularioPDF> {
   void _limpiarFormulario() {
     campoNombreCliente.clear();
     hablarcon.clear();
-    identificacion.clear();
     for (final hoja in hojas) {
       hoja.dispose();
     }
@@ -539,6 +619,23 @@ class _FormularioPDFState extends State<FormularioPDF> {
                     'firma': signature,
                     'nombre': nombreController.text.trim(),
                   });
+                } else {
+                  // Mostrar mensaje si falta firma o nombre
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Campos requeridos'),
+                      content: const Text(
+                        'Por favor, ingresa el nombre y la firma antes de guardar.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
                 }
               },
               child: const Text('Guardar'),
@@ -715,10 +812,6 @@ class _FormularioPDFState extends State<FormularioPDF> {
                 controller: hablarcon,
                 decoration: const InputDecoration(labelText: 'Hablar con'),
               ),
-              TextField(
-                controller: identificacion,
-                decoration: const InputDecoration(labelText: 'Identificación'),
-              ),
               const SizedBox(height: 16),
               _seccionConTitulo('Hojas de servicio', _hojasWidget()),
               const SizedBox(height: 32),
@@ -762,7 +855,6 @@ class _FormularioPDFState extends State<FormularioPDF> {
                     folio: folioParaPDF,
                     nombreCliente: campoNombreCliente.text,
                     hablarCon: hablarcon.text,
-                    identificacion: identificacion.text,
                     hojas: hojasList,
                     fechaFormateada: fechaFormateada,
                     logoBytes: logoUint8List,
@@ -898,7 +990,6 @@ class PdfGenerator {
     required int folio,
     required String nombreCliente,
     required String hablarCon,
-    required String identificacion,
     required List<Map<String, dynamic>> hojas,
     required String fechaFormateada,
     required Uint8List logoBytes,
@@ -1020,7 +1111,6 @@ class PdfGenerator {
             ),
             pw.Text('Nombre del cliente: $nombreCliente'),
             pw.Text('Hablar con: $hablarCon'),
-            pw.Text('Identificación: $identificacion'),
             pw.SizedBox(height: 8),
 
             pw.Text(

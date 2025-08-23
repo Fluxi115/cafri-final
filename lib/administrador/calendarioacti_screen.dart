@@ -13,6 +13,97 @@ class _CalendarAdminScreenState extends State<CalendarAdminScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  /// Función para mostrar el modal con las actividades del día
+  void _mostrarActividadesDia(
+    BuildContext context,
+    List<Map<String, dynamic>> actividades,
+    ThemeData theme,
+    DateTime dia,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        if (actividades.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Center(
+              child: Text(
+                "No hay actividades para este día.",
+                style: theme.textTheme.bodyLarge,
+              ),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Actividades del ${dia.day}/${dia.month}/${dia.year}",
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              ListView.separated(
+                shrinkWrap: true,
+                itemCount: actividades.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, i) {
+                  final actividad = actividades[i];
+                  final fecha = (actividad['fecha'] as Timestamp).toDate();
+                  return Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    color: Colors.white.withAlpha(230),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.indigo[100],
+                        child: Icon(
+                          Icons.event_note,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      title: Text(
+                        actividad['descripcion'] ?? 'Sin descripción',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text(
+                            'Colaborador: ${actividad['colaborador'] ?? 'Sin asignar'}',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          Text(
+                            'Estado: ${actividad['estado'] ?? ''}',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          Text(
+                            'Hora: ${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -143,6 +234,14 @@ class _CalendarAdminScreenState extends State<CalendarAdminScreen> {
                               _selectedDay = selectedDay;
                               _focusedDay = focusedDay;
                             });
+                            // Llama al modal sólo si hay datos cargados:
+                            final eventosDia = getEventosDelDia(selectedDay);
+                            _mostrarActividadesDia(
+                              context,
+                              eventosDia,
+                              theme,
+                              selectedDay,
+                            );
                           },
                           onPageChanged: (focusedDay) {
                             setState(() {
@@ -154,98 +253,8 @@ class _CalendarAdminScreenState extends State<CalendarAdminScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(20),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                      ),
-                      child: _selectedDay == null
-                          ? const Center(
-                              child: Text(
-                                'Selecciona un día para ver actividades.',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            )
-                          : getEventosDelDia(_selectedDay!).isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No hay actividades para este día.',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            )
-                          : ListView(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8,
-                                horizontal: 8,
-                              ),
-                              children: getEventosDelDia(_selectedDay!).map((
-                                actividad,
-                              ) {
-                                final fecha = (actividad['fecha'] as Timestamp)
-                                    .toDate();
-                                return Card(
-                                  elevation: 4,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  color: Colors.white.withAlpha(230),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: Colors.indigo[100],
-                                      child: Icon(
-                                        Icons.event_note,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      actividad['descripcion'] ??
-                                          'Sin descripción',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Colaborador: ${actividad['colaborador'] ?? 'Sin asignar'}',
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Estado: ${actividad['estado'] ?? ''}',
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Hora: ${fecha.hour.toString().padLeft(2, '0')}:${fecha.minute.toString().padLeft(2, '0')}',
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                    ),
-                  ),
+                  // Ya NO hay lista de eventos abajo:
+                  const Spacer(),
                 ],
               );
             },

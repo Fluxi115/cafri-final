@@ -134,106 +134,111 @@ class _ClientesListarScreenState extends State<ClientesListarScreen> {
                       );
                     }
 
+                    // Cambios aquí: scroll vertical + scroll horizontal
                     return SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        columnSpacing: 24,
-                        headingRowColor: WidgetStateProperty.all(
-                          theme.colorScheme.primary.withAlpha(30),
-                        ),
-                        columns: const [
-                          DataColumn(label: Text('Código')),
-                          DataColumn(label: Text('Nombre')),
-                          DataColumn(label: Text('Ciudad')),
-                          DataColumn(label: Text('Teléfono')),
-                          DataColumn(label: Text('Correo')),
-                          DataColumn(label: Text('ID')),
-                          DataColumn(label: Text('Acciones')),
-                        ],
-                        rows: clientes.map((cliente) {
-                          final data = cliente.data() as Map<String, dynamic>;
-                          final codigo = data.containsKey('codigo')
-                              ? data['codigo'] ?? ''
-                              : '';
-                          final nombre = data.containsKey('nombre')
-                              ? data['nombre'] ?? ''
-                              : '';
-                          final ciudad = data.containsKey('ciudad')
-                              ? data['ciudad'] ?? ''
-                              : '';
-                          final telefono = data.containsKey('telefono')
-                              ? data['telefono'] ?? ''
-                              : '';
-                          final correo = data.containsKey('correo')
-                              ? data['correo'] ?? ''
-                              : '';
-                          final id = cliente.id;
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 24,
+                          headingRowColor: WidgetStateProperty.all(
+                            theme.colorScheme.primary.withAlpha(30),
+                          ),
+                          columns: const [
+                            DataColumn(label: Text('Código')),
+                            DataColumn(label: Text('Nombre')),
+                            DataColumn(label: Text('Ciudad')),
+                            DataColumn(label: Text('Teléfono')),
+                            DataColumn(label: Text('Correo')),
+                            DataColumn(label: Text('ID')),
+                            DataColumn(label: Text('Acciones')),
+                          ],
+                          rows: clientes.map((cliente) {
+                            final data = cliente.data() as Map<String, dynamic>;
+                            final codigo = data.containsKey('codigo')
+                                ? data['codigo'] ?? ''
+                                : '';
+                            final nombre = data.containsKey('nombre')
+                                ? data['nombre'] ?? ''
+                                : '';
+                            final ciudad = data.containsKey('ciudad')
+                                ? data['ciudad'] ?? ''
+                                : '';
+                            final telefono = data.containsKey('telefono')
+                                ? data['telefono'] ?? ''
+                                : '';
+                            final correo = data.containsKey('correo')
+                                ? data['correo'] ?? ''
+                                : '';
+                            final id = cliente.id;
 
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(codigo)),
-                              DataCell(Text(nombre)),
-                              DataCell(Text(ciudad)),
-                              DataCell(Text(telefono)),
-                              DataCell(Text(correo)),
-                              DataCell(
-                                Tooltip(
-                                  message: id,
-                                  child: Text(
-                                    id.length > 8
-                                        ? '${id.substring(0, 8)}...'
-                                        : id,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(codigo)),
+                                DataCell(Text(nombre)),
+                                DataCell(Text(ciudad)),
+                                DataCell(Text(telefono)),
+                                DataCell(Text(correo)),
+                                DataCell(
+                                  Tooltip(
+                                    message: id,
+                                    child: Text(
+                                      id.length > 8
+                                          ? '${id.substring(0, 8)}...'
+                                          : id,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        color: Colors.blue,
-                                      ),
-                                      tooltip: 'Editar cliente',
-                                      onPressed: () async {
-                                        final result = await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ClienteEditarScreen(
-                                              clienteId: cliente.id,
-                                              clienteData: data,
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        tooltip: 'Editar cliente',
+                                        onPressed: () async {
+                                          final result = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  ClienteEditarScreen(
+                                                    clienteId: cliente.id,
+                                                    clienteData: data,
+                                                  ),
                                             ),
-                                          ),
-                                        );
-                                        if (result == true) {
-                                          setState(() {});
-                                        }
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.red,
+                                          );
+                                          if (result == true) {
+                                            setState(() {});
+                                          }
+                                        },
                                       ),
-                                      tooltip: 'Eliminar cliente',
-                                      onPressed: () => _borrarCliente(
-                                        context,
-                                        cliente.id,
-                                        codigo,
-                                        nombre,
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        tooltip: 'Eliminar cliente',
+                                        onPressed: () => _borrarCliente(
+                                          context,
+                                          cliente.id,
+                                          codigo,
+                                          nombre,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     );
                   },
