@@ -44,8 +44,11 @@ dependencies:
   flutter_polyline_points: ^2.1.0
   http: ^1.5.0-beta.2
   flutter_compass: ^0.8.1
+  web: ^1.1.1
   csv: ^6.0.0
   fl_chart: ^1.0.0
+  file_picker: ^10.3.2
+  syncfusion_flutter_pdfviewer: ^30.2.7
 
 dev_dependencies:
   flutter_test:

@@ -1,0 +1,249 @@
+// ignore_for_file: use_build_context_synchronously
+
+import 'package:flutter/material.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
+class PdfFileWithDate {
+  final Reference ref;
+  final DateTime? uploadDate;
+  PdfFileWithDate({required this.ref, required this.uploadDate});
+}
+
+class PdfListScreen extends StatefulWidget {
+  const PdfListScreen({super.key});
+
+  @override
+  State<PdfListScreen> createState() => _PdfListScreenState();
+}
+
+class _PdfListScreenState extends State<PdfListScreen> {
+  late final Reference _pdfsRef;
+  List<PdfFileWithDate> _allFiles = [];
+  List<PdfFileWithDate> _filteredFiles = [];
+  bool _loading = true;
+  String _search = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _pdfsRef = FirebaseStorage.instance.ref('pdfs/tareas');
+    _fetchFiles();
+    _searchController.addListener(_filterFiles);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchFiles() async {
+    setState(() => _loading = true);
+    try {
+      final result = await _pdfsRef.listAll();
+      List<PdfFileWithDate> filesWithDates = [];
+
+      // Obtén metadatos para cada archivo
+      for (var ref in result.items) {
+        try {
+          final metadata = await ref.getMetadata();
+          filesWithDates.add(
+            PdfFileWithDate(ref: ref, uploadDate: metadata.timeCreated),
+          );
+        } catch (e) {
+          filesWithDates.add(PdfFileWithDate(ref: ref, uploadDate: null));
+        }
+      }
+
+      _allFiles = filesWithDates;
+      _filterFiles();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error cargando PDFs: $e")));
+      }
+      _allFiles = [];
+      _filteredFiles = [];
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _filterFiles() {
+    setState(() {
+      _search = _searchController.text.trim().toLowerCase();
+      _filteredFiles = _allFiles.where((file) {
+        return file.ref.name.toLowerCase().contains(_search);
+      }).toList();
+    });
+  }
+
+  void _refreshList() => _fetchFiles();
+
+  Future<String> _getDownloadUrl(Reference ref) async {
+    return await ref.getDownloadURL();
+  }
+
+  Future<void> _launchDownloadUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("No se pudo abrir la URL.")));
+    }
+  }
+
+  Future<bool?> _confirmDeleteDialog(String fileName) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirmar borrado"),
+        content: Text(
+          "¿Seguro que deseas borrar el archivo \"$fileName\"? Esta acción es irreversible.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Borrar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deletePdf(Reference ref, String fileName) async {
+    final confirmed = await _confirmDeleteDialog(fileName);
+    if (confirmed != true) return;
+    setState(() => _loading = true);
+    try {
+      await ref.delete();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Archivo \"$fileName\" borrado.")));
+      await _fetchFiles(); // refresca la lista
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error al borrar: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _formatDate(DateTime? d) {
+    if (d == null) return "Fecha no disponible";
+    return DateFormat('dd/MM/yyyy HH:mm', 'es').format(d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Lista de PDFs subidos"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Actualizar',
+            onPressed: _refreshList,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: "Buscar por nombre",
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredFiles.isEmpty
+                ? const Center(child: Text("No hay PDFs para mostrar."))
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filteredFiles.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, index) {
+                      final pdfFile = _filteredFiles[index];
+                      final ref = pdfFile.ref;
+                      final fileName = ref.name;
+                      final uploadDateStr = _formatDate(pdfFile.uploadDate);
+                      return ListTile(
+                        leading: const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: Colors.red,
+                        ),
+                        title: Text(fileName),
+                        subtitle: Text('Subido: $uploadDateStr'),
+                        trailing: Wrap(
+                          spacing: 8,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              tooltip: "Borrar PDF",
+                              color: Colors.red,
+                              onPressed: () => _deletePdf(ref, fileName),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.download_rounded),
+                              tooltip: "Descargar PDF",
+                              onPressed: () async {
+                                setState(() => _loading = true);
+                                try {
+                                  final url = await _getDownloadUrl(ref);
+                                  if (!mounted) return;
+                                  await _launchDownloadUrl(url);
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("No se pudo descargar: $e"),
+                                    ),
+                                  );
+                                } finally {
+                                  if (mounted) setState(() => _loading = false);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}

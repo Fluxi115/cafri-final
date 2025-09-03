@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:typed_data';
+import 'package:cafri/helpers/upload_pdf_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:image_picker/image_picker.dart';
@@ -11,7 +12,8 @@ import 'folio_service.dart';
 
 // Modelo para una hoja/formulario individual (excepto datos de cliente)
 class HojaServicioData {
-  final TextEditingController actividadParaController = TextEditingController();
+  final TextEditingController actividadResponsableController =
+      TextEditingController();
   final TextEditingController actividadTipoTareaController =
       TextEditingController();
   final TextEditingController descripcionTareaController =
@@ -28,7 +30,10 @@ class HojaServicioData {
       TextEditingController(); // NUEVO
   final TextEditingController observacionesController =
       TextEditingController(); // NUEVO
+  final TextEditingController descripcionVaptController =
+      TextEditingController();
 
+  final List<Uint8List> fotosVapt = []; // <-- NUEVO
   final List<Uint8List> fotosMantenimientoInicio = [];
   final List<Uint8List> fotosMantenimientoProceso = [];
   final List<Uint8List> fotosMantenimientoFin = [];
@@ -60,7 +65,7 @@ class HojaServicioData {
       TextEditingController();
 
   void dispose() {
-    actividadParaController.dispose();
+    actividadResponsableController.dispose();
     actividadTipoTareaController.dispose();
     descripcionTareaController.dispose();
     modeloEvaporadorController.dispose();
@@ -79,7 +84,7 @@ class HojaServicioData {
   }
 
   void clear() {
-    actividadParaController.clear();
+    actividadResponsableController.clear();
     actividadTipoTareaController.clear();
     descripcionTareaController.clear();
     modeloEvaporadorController.clear();
@@ -106,7 +111,7 @@ class HojaServicioData {
   }
 
   Map<String, dynamic> toMap() => {
-    'para': actividadParaController.text,
+    'Responsable': actividadResponsableController.text,
     'tipoTarea': actividadTipoTareaController.text,
     'descripcionTarea': descripcionTareaController.text,
     'modeloEvaporador': modeloEvaporadorController.text,
@@ -126,6 +131,8 @@ class HojaServicioData {
     'nombreTecnico': nombreTecnico,
     'firmaRecibe': firmaRecibe,
     'nombreRecibe': nombreRecibe,
+    'fotosVapt': fotosVapt,
+    'descripcionVapt': descripcionVaptController.text,
   };
 }
 
@@ -139,7 +146,7 @@ class FormularioPDF extends StatefulWidget {
 class _FormularioPDFState extends State<FormularioPDF> {
   // Campos de cliente (únicos)
   final TextEditingController campoNombreCliente = TextEditingController();
-  final TextEditingController hablarcon = TextEditingController();
+  final TextEditingController atencion = TextEditingController();
 
   // Lista dinámica de hojas (formularios)
   final List<HojaServicioData> hojas = [HojaServicioData()];
@@ -159,7 +166,7 @@ class _FormularioPDFState extends State<FormularioPDF> {
       hoja.dispose();
     }
     campoNombreCliente.dispose();
-    hablarcon.dispose();
+    atencion.dispose();
     super.dispose();
   }
 
@@ -168,8 +175,8 @@ class _FormularioPDFState extends State<FormularioPDF> {
     if (campoNombreCliente.text.trim().isEmpty) {
       return 'Nombre del cliente es obligatorio.';
     }
-    if (hablarcon.text.trim().isEmpty) {
-      return 'El campo "Hablar con" es obligatorio.';
+    if (atencion.text.trim().isEmpty) {
+      return 'El campo "atencion" es obligatorio.';
     }
 
     // Por cada hoja
@@ -177,8 +184,8 @@ class _FormularioPDFState extends State<FormularioPDF> {
       final hoja = hojas[i];
       final noHoja = i + 1;
 
-      if (hoja.actividadParaController.text.trim().isEmpty) {
-        return 'Hoja $noHoja: El campo "Para" es obligatorio.';
+      if (hoja.actividadResponsableController.text.trim().isEmpty) {
+        return 'Hoja $noHoja: El campo "Responsable" es obligatorio.';
       }
       if (hoja.actividadTipoTareaController.text.trim().isEmpty) {
         return 'Hoja $noHoja: El campo "Tipo de tarea" es obligatorio.';
@@ -256,7 +263,7 @@ class _FormularioPDFState extends State<FormularioPDF> {
 
   void _limpiarFormulario() {
     campoNombreCliente.clear();
-    hablarcon.clear();
+    atencion.clear();
     for (final hoja in hojas) {
       hoja.dispose();
     }
@@ -298,8 +305,8 @@ class _FormularioPDFState extends State<FormularioPDF> {
                   ),
                   // Actividades
                   TextField(
-                    controller: hoja.actividadParaController,
-                    decoration: const InputDecoration(labelText: 'Para'),
+                    controller: hoja.actividadResponsableController,
+                    decoration: const InputDecoration(labelText: 'Responsable'),
                   ),
                   TextField(
                     controller: hoja.actividadTipoTareaController,
@@ -347,6 +354,17 @@ class _FormularioPDFState extends State<FormularioPDF> {
                   // Imágenes de evaporadores
                   _imagenesEvaporadoresWidget(hoja),
                   const SizedBox(height: 8),
+
+                  FotosFilaDescripcion(
+                    titulo: 'VOLTAJES, AMPERAJES, PRESIONES Y TEMPERATURAS',
+                    fotos: hoja.fotosVapt,
+                    descripcionController: hoja.descripcionVaptController,
+                    onAdd: (img) => setState(() => hoja.fotosVapt.add(img)),
+                    onRemove: (idx) =>
+                        setState(() => hoja.fotosVapt.removeAt(idx)),
+                  ),
+                  const SizedBox(height: 8),
+
                   // Fotos inicio/proceso/fin (nuevo widget)
                   FotosFilaDescripcion(
                     titulo: 'Fotos de inicio',
@@ -809,8 +827,8 @@ class _FormularioPDFState extends State<FormularioPDF> {
                 ),
               ),
               TextField(
-                controller: hablarcon,
-                decoration: const InputDecoration(labelText: 'Hablar con'),
+                controller: atencion,
+                decoration: const InputDecoration(labelText: 'atencion'),
               ),
               const SizedBox(height: 16),
               _seccionConTitulo('Hojas de servicio', _hojasWidget()),
@@ -854,10 +872,19 @@ class _FormularioPDFState extends State<FormularioPDF> {
                   final pdfBytes = await PdfGenerator.generatePdf(
                     folio: folioParaPDF,
                     nombreCliente: campoNombreCliente.text,
-                    hablarCon: hablarcon.text,
+                    atencion: atencion.text,
                     hojas: hojasList,
                     fechaFormateada: fechaFormateada,
                     logoBytes: logoUint8List,
+                  );
+
+                  await subirPdfTarea(pdfBytes, folioParaPDF);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'PDF enviado al área administrativa exitosamente',
+                      ),
+                    ),
                   );
 
                   await FolioService.updateFolio(folioParaPDF);
@@ -989,7 +1016,7 @@ class PdfGenerator {
   static Future<Uint8List> generatePdf({
     required int folio,
     required String nombreCliente,
-    required String hablarCon,
+    required String atencion,
     required List<Map<String, dynamic>> hojas,
     required String fechaFormateada,
     required Uint8List logoBytes,
@@ -1110,14 +1137,13 @@ class PdfGenerator {
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
             pw.Text('Nombre del cliente: $nombreCliente'),
-            pw.Text('Hablar con: $hablarCon'),
+            pw.Text('atencion: $atencion'),
             pw.SizedBox(height: 8),
 
             pw.Text(
               'Información de las actividades',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
-            pw.Text('Para: ${hoja['para'] ?? ''}'),
             pw.Text('Tipo de tarea: ${hoja['tipoTarea'] ?? ''}'),
             pw.Text(
               'Descripción de la tarea: ${hoja['descripcionTarea'] ?? ''}',
@@ -1181,6 +1207,13 @@ class PdfGenerator {
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
             ),
             buildImagenesEvaporadores(hoja['imagenesEvaporadores'] ?? []),
+            pw.SizedBox(height: 8),
+
+            buildFotoFila(
+              (hoja['fotosVapt'] ?? []) as List,
+              hoja['descripcionVapt'] ?? '',
+              'VOLTAJES, AMPERAJES, PRESIONES Y TEMPERATURAS (fotos)',
+            ),
             pw.SizedBox(height: 8),
 
             buildFotoFila(
@@ -1280,3 +1313,6 @@ class PdfGenerator {
     return pdf.save();
   }
 }
+
+//al terminar la actividad que abra la hoja de servicio
+//modificar los tamaños de las tablas y documentos(pdf y cotizacione)

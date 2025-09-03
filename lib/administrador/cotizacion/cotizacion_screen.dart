@@ -137,27 +137,35 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
   Future<List<Cliente>> _buscarSugerenciasCliente(String pattern) async {
     pattern = pattern.trim();
     if (pattern.isEmpty) return [];
-    final byNombre = await FirebaseFirestore.instance
+
+    final nombreQuery = FirebaseFirestore.instance
         .collection('clientes')
         .where('nombre', isGreaterThanOrEqualTo: pattern)
         .where('nombre', isLessThanOrEqualTo: '$pattern\uf8ff')
-        .limit(10)
+        .limit(5)
         .get();
 
-    final byCodigo = await FirebaseFirestore.instance
+    final codigoQuery = FirebaseFirestore.instance
         .collection('clientes')
         .where('codigo', isGreaterThanOrEqualTo: pattern)
         .where('codigo', isLessThanOrEqualTo: '$pattern\uf8ff')
-        .limit(10)
+        .limit(5)
         .get();
 
+    final correoQuery = FirebaseFirestore.instance
+        .collection('clientes')
+        .where('correo', isGreaterThanOrEqualTo: pattern)
+        .where('correo', isLessThanOrEqualTo: '$pattern\uf8ff')
+        .limit(5)
+        .get();
+
+    final results = await Future.wait([nombreQuery, codigoQuery, correoQuery]);
     final vistos = <String>{};
-    final resultados = [...byNombre.docs, ...byCodigo.docs]
+    return results
+        .expand((q) => q.docs)
         .where((doc) => vistos.add(doc.id))
         .map((doc) => Cliente.fromFirestore(doc.id, doc.data()))
         .toList();
-
-    return resultados;
   }
 
   /// Autocomplete para servicios por código o concepto
@@ -546,6 +554,8 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
 
     pdf.addPage(
       pw.MultiPage(
+        // Margen amplio: 30 pt = ~1cm. Puedes aumentar si necesitas más espacio blanco.
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 40),
         build: (pw.Context context) => [
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -596,6 +606,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
             "Productos/Servicios",
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
           ),
+          // --- TABLA AMPLIA Y LEGIBLE ---
           pw.TableHelper.fromTextArray(
             headers: [
               'Código',
@@ -619,13 +630,31 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                   ],
                 )
                 .toList(),
-            cellStyle: const pw.TextStyle(fontSize: 9),
+            cellStyle: const pw.TextStyle(
+              fontSize: 8,
+            ), // 👈 Fuente chica (compacto)
             headerStyle: pw.TextStyle(
               fontWeight: pw.FontWeight.bold,
-              fontSize: 10,
+              fontSize: 9,
+              color: PdfColors.white,
             ),
-            cellAlignment: pw.Alignment.centerLeft,
-            headerDecoration: pw.BoxDecoration(color: PdfColors.blue50),
+            cellAlignment: pw.Alignment.center,
+            headerDecoration: pw.BoxDecoration(color: PdfColors.blue800),
+            cellPadding: const pw.EdgeInsets.symmetric(
+              vertical: 2,
+              horizontal: 2,
+            ), // 👈 Padding mínimo
+            columnWidths: {
+              0: const pw.FlexColumnWidth(1), // Código
+              1: const pw.FlexColumnWidth(
+                2.4,
+              ), // Descripción (amplia pero ajustada)
+              2: const pw.FlexColumnWidth(0.7), // Cantidad
+              3: const pw.FlexColumnWidth(1.0), // Precio
+              4: const pw.FlexColumnWidth(1.0), // Subtotal
+              5: const pw.FlexColumnWidth(1.0), // Impuesto
+              6: const pw.FlexColumnWidth(1.1), // Total
+            },
           ),
           pw.SizedBox(height: 12),
           pw.Row(
@@ -835,10 +864,9 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                     itemBuilder: (ctx, idx) {
                       final c = options.elementAt(idx);
                       return ListTile(
-                        title: Text(c.nombre),
-                        subtitle: Text(
-                          'Código: ${c.codigo}  Tel: ${c.telefono}',
-                        ),
+                        title: Text('${c.nombre} (${c.codigo})'),
+                        subtitle: Text('${c.email} · ${c.ciudad}'),
+                        trailing: Text(c.telefono),
                         onTap: () => onSelected(c),
                       );
                     },
@@ -859,7 +887,7 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
                       controller: controller,
                       focusNode: focusNode,
                       decoration: const InputDecoration(
-                        labelText: "Busca cliente por nombre o código",
+                        labelText: "Busca cliente por nombre, código o correo",
                         prefixIcon: Icon(Icons.person_search),
                       ),
                       autofocus: false,
@@ -1071,3 +1099,17 @@ class _CotizacionScreenState extends State<CotizacionScreen> {
     );
   }
 }
+
+// Opción B) Volver a GENERAR el PDF (a partir de los datos)
+// Dado que NO guardas el archivo PDF, sino solo los datos:
+// Para descargar el PDF después, necesitas abrir tu pantalla/código de generación y “re-crear” el PDF usando los datos de esa cotización, tal como lo hiciste la primera vez.
+
+// ¿Cómo?
+
+// Haz un listado de cotizaciones guardadas (DataTable/ListView de Firestore).
+// Al seleccionar una cotización:
+// Recupera sus datos.
+// Usa tu mismo código de generación de PDF con esos datos.
+// Llama a Printing.layoutPdf(...).
+// El usuario podrá descargar/imprimir el PDF de nuevo.
+// No vuelve a aparecer a menos que lo generes nuevamente con el mismo método.

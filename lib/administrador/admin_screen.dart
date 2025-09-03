@@ -1,12 +1,12 @@
 // ignore_for_file: use_build_context_synchronously
 
+// import 'package:cafri/administrador/firebase_storage_file_explorer.dart';
+import 'package:cafri/administrador/upload_view_download_pdf_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cafri/autentificacion/auth_service.dart';
 import 'package:cafri/autentificacion/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// Importa tus pantallas aquí
 import 'package:cafri/administrador/user_crud_screens.dart';
 import 'package:cafri/clientes/ver_cliente.dart';
 import 'package:cafri/catalogo_servicios/ver_cat_servicio_screen.dart';
@@ -95,6 +95,16 @@ class _AdminScreenState extends State<AdminScreen> {
           Icons.bar_chart,
           DashboardMetricasActividadesConFiltro(),
         ),
+        _MenuOption(
+          'ver y descargar PDF',
+          Icons.picture_as_pdf,
+          PdfListScreen(),
+        ),
+        // _MenuOption(
+        // 'Hoja de Servicios',
+        // Icons.download,
+        // const PdfViewerScreen(),
+        // ),
       ]),
     ];
   }
