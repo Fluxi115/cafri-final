@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, unnecessary_nullable_for_final_variable_declarations
 
 import 'dart:typed_data';
 import 'package:cafri/helpers/upload_pdf_storage.dart';
@@ -517,13 +517,13 @@ class _FormularioPDFState extends State<FormularioPDF> {
             GestureDetector(
               onTap: () async {
                 final picker = ImagePicker();
-                final XFile? picked = await picker.pickImage(
-                  source: ImageSource.gallery, // CAMBIO: galería
-                );
-                if (picked != null) {
-                  final bytes = await picked.readAsBytes();
+                final List<XFile>? pickedList = await picker.pickMultiImage();
+                if (pickedList != null && pickedList.isNotEmpty) {
+                  final bytesList = await Future.wait(
+                    pickedList.map((xfile) => xfile.readAsBytes()),
+                  );
                   setState(() {
-                    hoja.imagenesEvaporadores.add(bytes);
+                    hoja.imagenesEvaporadores.addAll(bytesList);
                   });
                 }
               },
@@ -601,68 +601,67 @@ class _FormularioPDFState extends State<FormularioPDF> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          title: Text(titulo),
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre'),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(titulo),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nombreController,
+                      decoration: const InputDecoration(labelText: 'Nombre'),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 200,
+                      child: Signature(
+                        controller: controller,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 200,
-                  child: Signature(
-                    controller: controller,
-                    backgroundColor: Colors.white,
-                  ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    controller.clear();
+                    setDialogState(() {}); // refresca el diálogo
+                  },
+                  child: const Text('Limpiar'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (controller.isNotEmpty &&
+                        nombreController.text.trim().isNotEmpty) {
+                      final signature = await controller.toPngBytes();
+                      Navigator.of(context).pop({
+                        'firma': signature,
+                        'nombre': nombreController.text.trim(),
+                      });
+                    } else {
+                      // Mostrar mensaje si falta firma o nombre
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'La firma y el nombre son obligatorios.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('Guardar'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => controller.clear(),
-              child: const Text('Limpiar'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (controller.isNotEmpty &&
-                    nombreController.text.trim().isNotEmpty) {
-                  final signature = await controller.toPngBytes();
-                  Navigator.of(context).pop({
-                    'firma': signature,
-                    'nombre': nombreController.text.trim(),
-                  });
-                } else {
-                  // Mostrar mensaje si falta firma o nombre
-                  showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Campos requeridos'),
-                      content: const Text(
-                        'Por favor, ingresa el nombre y la firma antes de guardar.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              },
-              child: const Text('Guardar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -837,6 +836,16 @@ class _FormularioPDFState extends State<FormularioPDF> {
                 icon: const Icon(Icons.picture_as_pdf),
                 label: const Text('Guardar como PDF'),
                 onPressed: () async {
+                  // 1. Primero valida los campos obligatorios
+                  final error = validarCamposObligatorios();
+                  if (error != null) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(error)));
+                    return; // Detén el flujo si faltan campos
+                  }
+
+                  // 2. Ahora sí, pide confirmación
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -856,7 +865,6 @@ class _FormularioPDFState extends State<FormularioPDF> {
                       ],
                     ),
                   );
-
                   if (confirm != true) return;
 
                   final logoBytes = await rootBundle.load(
@@ -932,12 +940,14 @@ class FotosFilaDescripcion extends StatefulWidget {
 class _FotosFilaDescripcionState extends State<FotosFilaDescripcion> {
   Future<void> _agregarFoto() async {
     final picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(
-      source: ImageSource.gallery,
-    ); // CAMBIO: galería
-    if (picked != null) {
-      final bytes = await picked.readAsBytes();
-      widget.onAdd(bytes);
+    final List<XFile>? pickedList = await picker.pickMultiImage();
+    if (pickedList != null && pickedList.isNotEmpty) {
+      final bytesList = await Future.wait(
+        pickedList.map((xfile) => xfile.readAsBytes()),
+      );
+      for (final bytes in bytesList) {
+        widget.onAdd(bytes);
+      }
       setState(() {});
     }
   }
@@ -1314,5 +1324,4 @@ class PdfGenerator {
   }
 }
 
-//al terminar la actividad que abra la hoja de servicio
-//modificar los tamaños de las tablas y documentos(pdf y cotizacione)
+//las imagenes multiple seleccion

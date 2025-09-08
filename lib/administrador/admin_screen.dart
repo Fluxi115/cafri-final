@@ -1,6 +1,5 @@
 // ignore_for_file: use_build_context_synchronously
 
-// import 'package:cafri/administrador/firebase_storage_file_explorer.dart';
 import 'package:cafri/administrador/upload_view_download_pdf_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cafri/autentificacion/auth_service.dart';
@@ -18,9 +17,66 @@ import 'package:cafri/administrador/calendarioacti_screen.dart';
 import 'package:cafri/administrador/geolo.dart';
 import 'package:cafri/administrador/dashboard_metricas.dart';
 
+/// CustomUserAvatar: Muestra avatar, inicial o icono generico.
+class CustomUserAvatar extends StatelessWidget {
+  final String? photoUrl;
+  final String? displayName;
+  final double radius;
+  final double fontSize;
+  final Color? color;
+  final GestureTapCallback? onTap;
+
+  const CustomUserAvatar({
+    super.key,
+    this.photoUrl,
+    this.displayName,
+    this.radius = 30,
+    this.fontSize = 25,
+    this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bgColor = color ?? Colors.indigo.withAlpha(217);
+
+    Widget child;
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      child = CircleAvatar(
+        backgroundColor: Colors.white,
+        radius: radius,
+        backgroundImage: NetworkImage(photoUrl!),
+      );
+    } else if (displayName != null && displayName!.isNotEmpty) {
+      child = CircleAvatar(
+        backgroundColor: bgColor,
+        radius: radius,
+        child: Text(
+          displayName!.substring(0, 1).toUpperCase(),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: fontSize,
+          ),
+        ),
+      );
+    } else {
+      child = CircleAvatar(
+        backgroundColor: Colors.grey[400],
+        radius: radius,
+        child: Icon(
+          Icons.account_circle,
+          color: Colors.white,
+          size: fontSize * 1.1,
+        ),
+      );
+    }
+    return GestureDetector(onTap: onTap, child: child);
+  }
+}
+
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
-
   @override
   State<AdminScreen> createState() => _AdminScreenState();
 }
@@ -100,18 +156,14 @@ class _AdminScreenState extends State<AdminScreen> {
           Icons.picture_as_pdf,
           PdfListScreen(),
         ),
-        // _MenuOption(
-        // 'Hoja de Servicios',
-        // Icons.download,
-        // const PdfViewerScreen(),
-        // ),
       ]),
     ];
   }
 
   Future<void> _loadUserInfo(String uid) async {
+    // Asegúrate de que la colección sea correcta ("usuarios" o "users" según tu colección real)
     final doc = await FirebaseFirestore.instance
-        .collection('usuarios')
+        .collection('users')
         .doc(uid)
         .get();
     if (doc.exists) {
@@ -169,8 +221,62 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  void _showFullProfilePhoto() {
+    if (photoUrl != null && photoUrl!.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    //color: Colors.black.withOpacity(0.7),
+                  ),
+                ),
+                InteractiveViewer(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      photoUrl!,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (ctx, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Padding(
+                          padding: const EdgeInsets.all(60.0),
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Padding(
+                            padding: EdgeInsets.all(60.0),
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 70,
+                              color: Colors.white70,
+                            ),
+                          ),
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  top: 20,
+                  right: 20,
+                  child: Icon(Icons.close, color: Colors.white, size: 32),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildMainContent() {
-    // ... igual al tuyo ...
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -258,8 +364,9 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  /// --- ACTUALIZACIÓN AQUÍ ---
   Widget _buildProfileInfo() {
-    String displayName = nombre?.isNotEmpty == true ? nombre! : 'Usuario';
+    String displayName = nombre?.isNotEmpty == true ? nombre! : 'users';
 
     return Row(
       children: [
@@ -275,48 +382,53 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
             ],
           ),
-          child: CircleAvatar(
+          child: CustomUserAvatar(
+            photoUrl: photoUrl,
+            displayName: nombre,
             radius: 22,
-            backgroundColor: Colors.white,
-            backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
-                ? NetworkImage(photoUrl!)
-                : null,
-            child: photoUrl == null || photoUrl!.isEmpty
-                ? Icon(Icons.account_circle, color: Colors.indigo, size: 32)
-                : null,
+            fontSize: 18,
+            onTap: _showFullProfilePhoto,
           ),
         ),
         const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              displayName,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
-                letterSpacing: 0.6,
-                shadows: [
-                  Shadow(
-                    color: Colors.black45,
-                    blurRadius: 2,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-            if (rol != null)
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                rol!,
+                displayName,
                 style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 0.3,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  letterSpacing: 0.6,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black45,
+                      blurRadius: 2,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                softWrap: false,
               ),
-          ],
+              if (rol != null)
+                Text(
+                  rol!,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  softWrap: false,
+                ),
+            ],
+          ),
         ),
       ],
     );
@@ -353,19 +465,12 @@ class _AdminScreenState extends State<AdminScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2.5),
                     ),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
+                    child: CustomUserAvatar(
+                      photoUrl: photoUrl,
+                      displayName: nombre,
                       radius: 30,
-                      backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
-                          ? NetworkImage(photoUrl!)
-                          : null,
-                      child: photoUrl == null || photoUrl!.isEmpty
-                          ? Icon(
-                              Icons.account_circle,
-                              color: Colors.indigo,
-                              size: 36,
-                            )
-                          : null,
+                      fontSize: 26,
+                      onTap: _showFullProfilePhoto,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -375,7 +480,9 @@ class _AdminScreenState extends State<AdminScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          nombre ?? 'Usuario',
+                          (nombre != null && nombre!.isNotEmpty)
+                              ? nombre!
+                              : 'Usuario',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

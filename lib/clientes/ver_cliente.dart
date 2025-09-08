@@ -65,6 +65,9 @@ class _ClientesListarScreenState extends State<ClientesListarScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final double width = MediaQuery.of(context).size.width;
+    final bool isMobile = width < 700;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Lista de Clientes')),
       body: Center(
@@ -134,68 +137,94 @@ class _ClientesListarScreenState extends State<ClientesListarScreen> {
                       );
                     }
 
-                    // Cambios aquí: scroll vertical + scroll horizontal
-                    return SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columnSpacing: 24,
-                          headingRowColor: WidgetStateProperty.all(
-                            theme.colorScheme.primary.withAlpha(30),
-                          ),
-                          columns: const [
-                            DataColumn(label: Text('Código')),
-                            DataColumn(label: Text('Nombre')),
-                            DataColumn(label: Text('Ciudad')),
-                            DataColumn(label: Text('Teléfono')),
-                            DataColumn(label: Text('Correo')),
-                            DataColumn(label: Text('ID')),
-                            DataColumn(label: Text('Acciones')),
-                          ],
-                          rows: clientes.map((cliente) {
-                            final data = cliente.data() as Map<String, dynamic>;
-                            final codigo = data.containsKey('codigo')
-                                ? data['codigo'] ?? ''
-                                : '';
-                            final nombre = data.containsKey('nombre')
-                                ? data['nombre'] ?? ''
-                                : '';
-                            final ciudad = data.containsKey('ciudad')
-                                ? data['ciudad'] ?? ''
-                                : '';
-                            final telefono = data.containsKey('telefono')
-                                ? data['telefono'] ?? ''
-                                : '';
-                            final correo = data.containsKey('correo')
-                                ? data['correo'] ?? ''
-                                : '';
-                            final id = cliente.id;
+                    if (isMobile) {
+                      // ----- TARJETAS PARA MÓVIL -----
+                      return ListView.separated(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: clientes.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, idx) {
+                          final cliente = clientes[idx];
+                          final data = cliente.data() as Map<String, dynamic>;
+                          final codigo = data['codigo'] ?? '';
+                          final nombre = data['nombre'] ?? '';
+                          final ciudad = data['ciudad'] ?? '';
+                          final telefono = data['telefono'] ?? '';
+                          final correo = data['correo'] ?? '';
+                          final id = cliente.id;
 
-                            return DataRow(
-                              cells: [
-                                DataCell(Text(codigo)),
-                                DataCell(Text(nombre)),
-                                DataCell(Text(ciudad)),
-                                DataCell(Text(telefono)),
-                                DataCell(Text(correo)),
-                                DataCell(
-                                  Tooltip(
-                                    message: id,
-                                    child: Text(
-                                      id.length > 8
-                                          ? '${id.substring(0, 8)}...'
-                                          : id,
+                          return Card(
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          "$codigo - $nombre",
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Tooltip(
+                                        message: id,
+                                        child: Text(
+                                          id.length > 8
+                                              ? '${id.substring(0, 8)}...'
+                                              : id,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (ciudad.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Ciudad: $ciudad",
                                       style: const TextStyle(
-                                        fontSize: 12,
                                         color: Colors.grey,
+                                        fontSize: 13,
                                       ),
                                     ),
-                                  ),
-                                ),
-                                DataCell(
+                                  ],
+                                  if (telefono.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Tel: $telefono",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                  if (correo.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      "Correo: $correo",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
                                   Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       IconButton(
                                         icon: const Icon(
@@ -214,9 +243,7 @@ class _ClientesListarScreenState extends State<ClientesListarScreen> {
                                                   ),
                                             ),
                                           );
-                                          if (result == true) {
-                                            setState(() {});
-                                          }
+                                          if (result == true) setState(() {});
                                         },
                                       ),
                                       IconButton(
@@ -234,13 +261,110 @@ class _ClientesListarScreenState extends State<ClientesListarScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      // ----------- TABLA PARA ESCRITORIO -----------
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 24,
+                            headingRowColor: WidgetStateProperty.all(
+                              theme.colorScheme.primary.withAlpha(30),
+                            ),
+                            columns: const [
+                              DataColumn(label: Text('Código')),
+                              DataColumn(label: Text('Nombre')),
+                              DataColumn(label: Text('Ciudad')),
+                              DataColumn(label: Text('Teléfono')),
+                              DataColumn(label: Text('Correo')),
+                              DataColumn(label: Text('ID')),
+                              DataColumn(label: Text('Acciones')),
+                            ],
+                            rows: clientes.map((cliente) {
+                              final data =
+                                  cliente.data() as Map<String, dynamic>;
+                              final codigo = data['codigo'] ?? '';
+                              final nombre = data['nombre'] ?? '';
+                              final ciudad = data['ciudad'] ?? '';
+                              final telefono = data['telefono'] ?? '';
+                              final correo = data['correo'] ?? '';
+                              final id = cliente.id;
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text(codigo)),
+                                  DataCell(Text(nombre)),
+                                  DataCell(Text(ciudad)),
+                                  DataCell(Text(telefono)),
+                                  DataCell(Text(correo)),
+                                  DataCell(
+                                    Tooltip(
+                                      message: id,
+                                      child: Text(
+                                        id.length > 8
+                                            ? '${id.substring(0, 8)}...'
+                                            : id,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.blue,
+                                          ),
+                                          tooltip: 'Editar cliente',
+                                          onPressed: () async {
+                                            final result = await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ClienteEditarScreen(
+                                                      clienteId: cliente.id,
+                                                      clienteData: data,
+                                                    ),
+                                              ),
+                                            );
+                                            if (result == true) setState(() {});
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
+                                          tooltip: 'Eliminar cliente',
+                                          onPressed: () => _borrarCliente(
+                                            context,
+                                            cliente.id,
+                                            codigo,
+                                            nombre,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
               ),

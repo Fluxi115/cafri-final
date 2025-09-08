@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart'; // Importante para Clipboard
 
 class PdfFileWithDate {
   final Reference ref;
@@ -46,7 +47,6 @@ class _PdfListScreenState extends State<PdfListScreen> {
       final result = await _pdfsRef.listAll();
       List<PdfFileWithDate> filesWithDates = [];
 
-      // Obtén metadatos para cada archivo
       for (var ref in result.items) {
         try {
           final metadata = await ref.getMetadata();
@@ -88,15 +88,43 @@ class _PdfListScreenState extends State<PdfListScreen> {
     return await ref.getDownloadURL();
   }
 
+  Future<void> _copyUrlToClipboard(Reference ref) async {
+    try {
+      final url = await _getDownloadUrl(ref);
+      await Clipboard.setData(ClipboardData(text: url));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "¡Enlace copiado al portapapeles! Pegue en su navegador para descargar.",
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No se pudo copiar el enlace: $e")),
+        );
+      }
+    }
+  }
+
+  /// Abre siempre la URL del PDF en el navegador externo.
   Future<void> _launchDownloadUrl(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("No se pudo abrir la URL.")));
+    bool opened = false;
+    try {
+      if (await canLaunchUrl(uri)) {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No se pudo abrir o descargar el PDF en el navegador."),
+        ),
+      );
     }
   }
 
@@ -136,7 +164,7 @@ class _PdfListScreenState extends State<PdfListScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Archivo \"$fileName\" borrado.")));
-      await _fetchFiles(); // refresca la lista
+      await _fetchFiles();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -173,12 +201,12 @@ class _PdfListScreenState extends State<PdfListScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 labelText: "Buscar por nombre",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                border: const OutlineInputBorder(),
                 isDense: true,
                 suffixIcon: _search.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear),
+                        icon: const Icon(Icons.clear),
                         onPressed: () => _searchController.clear(),
                       )
                     : null,
@@ -207,13 +235,14 @@ class _PdfListScreenState extends State<PdfListScreen> {
                         title: Text(fileName),
                         subtitle: Text('Subido: $uploadDateStr'),
                         trailing: Wrap(
-                          spacing: 8,
+                          spacing: 4,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.delete),
-                              tooltip: "Borrar PDF",
-                              color: Colors.red,
-                              onPressed: () => _deletePdf(ref, fileName),
+                              icon: const Icon(Icons.content_copy),
+                              tooltip: "Copiar enlace del PDF",
+                              onPressed: () async {
+                                await _copyUrlToClipboard(ref);
+                              },
                             ),
                             IconButton(
                               icon: const Icon(Icons.download_rounded),
@@ -235,6 +264,12 @@ class _PdfListScreenState extends State<PdfListScreen> {
                                   if (mounted) setState(() => _loading = false);
                                 }
                               },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              tooltip: "Borrar PDF",
+                              color: Colors.red,
+                              onPressed: () => _deletePdf(ref, fileName),
                             ),
                           ],
                         ),

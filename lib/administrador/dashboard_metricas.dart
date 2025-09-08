@@ -14,7 +14,7 @@ class DashboardMetricasActividadesConFiltro extends StatefulWidget {
 
 class _DashboardMetricasActividadesConFiltroState
     extends State<DashboardMetricasActividadesConFiltro> {
-  String? _usuarioIdSeleccionado;
+  String _usuarioIdSeleccionado = '';
   List<Map<String, String>> _usuarios = [];
 
   @override
@@ -45,63 +45,122 @@ class _DashboardMetricasActividadesConFiltroState
 
   @override
   Widget build(BuildContext context) {
-    // Busca el usuario seleccionado (si hay)
     final usuarioSeleccionado = _usuarios.firstWhere(
       (u) => u['id'] == _usuarioIdSeleccionado,
       orElse: () => {},
     );
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Filtro de usuario
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: _usuarioIdSeleccionado,
-                    hint: const Text('Filtrar por usuario'),
-                    items: [
-                      const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('Todos los usuarios'),
+    return Scaffold(
+      backgroundColor: Colors.white, // fondo sólido
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.titulo != null && widget.titulo!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2, left: 7),
+                child: Row(
+                  children: [
+                    const Icon(Icons.bar_chart, color: Colors.indigo, size: 27),
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.titulo!,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo,
                       ),
-                      ..._usuarios.map((usuario) {
-                        return DropdownMenuItem<String>(
-                          value: usuario['id'],
-                          child: Text(
-                            '${usuario['nombre']} ${usuario['apellido']}',
-                          ),
-                        );
-                      }),
-                    ],
-                    onChanged: (usuarioId) {
-                      setState(() {
-                        _usuarioIdSeleccionado = usuarioId;
-                      });
-                    },
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.person_search,
+                    color: Colors.indigo,
+                    size: 23,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _usuarioIdSeleccionado.isEmpty
+                          ? null
+                          : _usuarioIdSeleccionado,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      hint: const Text('Filtrar por usuario'),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: '', // '' representa TODOS
+                          child: Text('Todos los usuarios'),
+                        ),
+                        ..._usuarios.map((usuario) {
+                          return DropdownMenuItem<String>(
+                            value: usuario['id'],
+                            child: Text(
+                              '${usuario['nombre']} ${usuario['apellido']}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      ],
+                      onChanged: (usuarioId) {
+                        setState(() {
+                          _usuarioIdSeleccionado = usuarioId ?? '';
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Dashboard filtrado (sin Expanded)
-          DashboardMetricasActividades(
-            nombre: usuarioSeleccionado['nombre'],
-            apellido: usuarioSeleccionado['apellido'],
-            titulo: widget.titulo,
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 7, bottom: 4),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.account_circle,
+                    color: Colors.indigo,
+                    size: 19,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _usuarioIdSeleccionado.isEmpty ||
+                            usuarioSeleccionado.isEmpty
+                        ? "Visualizando TODAS las actividades"
+                        : "Visualizando: ${usuarioSeleccionado['nombre']} ${usuarioSeleccionado['apellido']}",
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            DashboardMetricasActividades(
+              nombre: usuarioSeleccionado['nombre'],
+              apellido: usuarioSeleccionado['apellido'],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// El widget DashboardMetricasActividades permanece igual que en tu código original
 class DashboardMetricasActividades extends StatelessWidget {
   final String? nombre;
   final String? apellido;
@@ -113,6 +172,13 @@ class DashboardMetricasActividades extends StatelessWidget {
     this.apellido,
     this.titulo,
   });
+
+  /// NUEVA PALETA DE COLORES MODERNA PARA LOS ESTADOS
+  static const _colorPendiente = Color(0xFF42A5F5);
+  static const _colorAceptada = Color(0xFF7E57C2);
+  static const _colorEnProceso = Color(0xFF26C6DA);
+  static const _colorPausada = Color(0xFFFFCA28);
+  static const _colorTerminada = Color(0xFF66BB6A);
 
   Future<Map<String, int>> _contarPorEstado() async {
     Query query = FirebaseFirestore.instance.collection('actividades');
@@ -167,52 +233,31 @@ class DashboardMetricasActividades extends StatelessWidget {
         final counts = snapshot.data ?? {};
         final total = counts.values.fold<int>(0, (a, b) => a + b);
 
-        // Colores y etiquetas para el gráfico
+        // Define estados con los nuevos colores
         final estados = [
-          {'label': 'Pendientes', 'key': 'pendiente', 'color': Colors.orange},
-          {'label': 'Aceptadas', 'key': 'aceptada', 'color': Colors.blue},
+          {'label': 'Pendientes', 'key': 'pendiente', 'color': _colorPendiente},
+          {'label': 'Aceptadas', 'key': 'aceptada', 'color': _colorAceptada},
           {
             'label': 'En proceso',
             'key': 'en_proceso',
-            'color': Colors.amber[800],
+            'color': _colorEnProceso,
           },
-          {'label': 'Pausadas', 'key': 'pausada', 'color': Colors.deepOrange},
-          {'label': 'Terminadas', 'key': 'terminada', 'color': Colors.green},
+          {'label': 'Pausadas', 'key': 'pausada', 'color': _colorPausada},
+          {'label': 'Terminadas', 'key': 'terminada', 'color': _colorTerminada},
         ];
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (titulo != null && titulo!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0, left: 8.0),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.bar_chart,
-                        color: Colors.indigo,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        titulo!,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.indigo,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Total mini tarjeta
               Card(
                 elevation: 2,
-                color: Colors.indigo.withAlpha(18),
-                margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
+                color: _colorPendiente, // <-- Color sólido
+                margin: const EdgeInsets.only(bottom: 12, left: 4, right: 4),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -224,15 +269,16 @@ class DashboardMetricasActividades extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.summarize,
-                        color: Colors.indigo,
-                        size: 28,
+                        color: Colors.white, // <-- Contraste blanco para icono
+                        size: 25,
                       ),
                       const SizedBox(width: 10),
                       Text(
                         "Total actividades: ",
                         style: TextStyle(
                           fontSize: 17,
-                          color: Colors.indigo[900],
+                          color:
+                              Colors.white, // <-- Contraste blanco para texto
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -240,7 +286,8 @@ class DashboardMetricasActividades extends StatelessWidget {
                         "$total",
                         style: const TextStyle(
                           fontSize: 22,
-                          color: Colors.indigo,
+                          color:
+                              Colors.white, // <-- Contraste blanco para número
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -248,7 +295,7 @@ class DashboardMetricasActividades extends StatelessWidget {
                   ),
                 ),
               ),
-              // Pie Chart
+              // Pie Chart central
               if (total > 0)
                 Center(
                   child: SizedBox(
@@ -285,7 +332,7 @@ class DashboardMetricasActividades extends StatelessWidget {
                 ),
               if (total > 0)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
                   child: Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 18,
@@ -309,8 +356,8 @@ class DashboardMetricasActividades extends StatelessWidget {
                           Text(
                             '$label ($value)',
                             style: TextStyle(
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w500,
+                              color: color,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -318,47 +365,24 @@ class DashboardMetricasActividades extends StatelessWidget {
                     }).toList(),
                   ),
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              // Tarjetas de métricas (ahora con fondo sólido y texto blanco)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  children: [
-                    _buildMetricCard(
-                      label: 'Pendientes',
-                      count: counts['pendiente'] ?? 0,
-                      color: Colors.orange,
-                      icon: Icons.hourglass_empty,
-                      bgColor: Colors.orange.withAlpha(30),
-                    ),
-                    _buildMetricCard(
-                      label: 'Aceptadas',
-                      count: counts['aceptada'] ?? 0,
-                      color: Colors.blue,
-                      icon: Icons.check_circle_outline,
-                      bgColor: Colors.blue.withAlpha(30),
-                    ),
-                    _buildMetricCard(
-                      label: 'En proceso',
-                      count: counts['en_proceso'] ?? 0,
-                      color: Colors.amber[800]!,
-                      icon: Icons.play_circle_outline,
-                      bgColor: Colors.amber.withAlpha(30),
-                    ),
-                    _buildMetricCard(
-                      label: 'Pausadas',
-                      count: counts['pausada'] ?? 0,
-                      color: Colors.deepOrange,
-                      icon: Icons.pause_circle_outline,
-                      bgColor: Colors.deepOrange.withAlpha(30),
-                    ),
-                    _buildMetricCard(
-                      label: 'Terminadas',
-                      count: counts['terminada'] ?? 0,
-                      color: Colors.green,
-                      icon: Icons.verified,
-                      bgColor: Colors.green.withAlpha(30),
-                    ),
-                  ],
+                  children: estados.map((estado) {
+                    final key = estado['key'] as String;
+                    final label = estado['label'] as String;
+                    final color = estado['color'] as Color;
+                    final value = counts[key] ?? 0;
+                    return _buildMetricCard(
+                      label: label,
+                      count: value,
+                      color: color, // fondo sólido
+                      icon: _iconForEstado(key),
+                      bgColor: color, // fondo sólido
+                    );
+                  }).toList(),
                 ),
               ),
             ],
@@ -366,6 +390,23 @@ class DashboardMetricasActividades extends StatelessWidget {
         );
       },
     );
+  }
+
+  IconData _iconForEstado(String key) {
+    switch (key) {
+      case 'pendiente':
+        return Icons.hourglass_empty;
+      case 'aceptada':
+        return Icons.check_circle_outline;
+      case 'en_proceso':
+        return Icons.play_circle_outline;
+      case 'pausada':
+        return Icons.pause_circle_outline;
+      case 'terminada':
+        return Icons.verified;
+      default:
+        return Icons.analytics;
+    }
   }
 
   Widget _buildMetricCard({
@@ -376,25 +417,29 @@ class DashboardMetricasActividades extends StatelessWidget {
     required Color bgColor,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       child: Card(
         elevation: 6,
-        color: bgColor,
+        color: bgColor, // fondo sólido
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         child: Container(
-          width: 130,
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+          width: 120,
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 8),
+              Icon(
+                icon,
+                color: Colors.white,
+                size: 28,
+              ), // Blanco para contraste
+              const SizedBox(height: 6),
               Text(
                 count.toString(),
-                style: TextStyle(
-                  fontSize: 28,
+                style: const TextStyle(
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: color,
+                  color: Colors.white, // Blanco para contraste
                   letterSpacing: 1.2,
                 ),
               ),
@@ -402,9 +447,9 @@ class DashboardMetricasActividades extends StatelessWidget {
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: color,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.white, // Blanco para contraste
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,
                 ),
