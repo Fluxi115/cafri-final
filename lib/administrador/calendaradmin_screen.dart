@@ -1,5 +1,3 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'package:geocoding/geocoding.dart';
 import '../calendar/location_picker.dart';
+
+// ignore_for_file: use_build_context_synchronously
 
 class CalendarPage extends StatefulWidget {
   const CalendarPage({super.key});
@@ -20,6 +20,11 @@ class _CalendarPageState extends State<CalendarPage> {
   TimeOfDay? _selectedTime;
   String _selectedTipo = 'Levantamiento tecnico';
   String? _selectedColaborador;
+
+  // NUEVO: selección de cliente
+  String? _selectedClienteId;
+  String? _selectedClienteNombre;
+
   latlng.LatLng? _ubicacionLatLng;
   String? _ubicacionUrl;
   String? _direccionManual;
@@ -41,11 +46,32 @@ class _CalendarPageState extends State<CalendarPage> {
         .collection('users')
         .where('rol', isEqualTo: 'colaborador')
         .get();
+
     return snapshot.docs
         .map(
-          (doc) => {'id': doc.id, 'name': doc['name'], 'email': doc['email']},
+          (doc) => {
+            'id': doc.id,
+            'name': (doc.data()['name'] ?? '').toString(),
+            'email': (doc.data()['email'] ?? '').toString(),
+          },
         )
         .toList();
+  }
+
+  // NUEVO: obtener clientes desde /clientes
+  Future<List<Map<String, dynamic>>> _getClientes() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('clientes')
+        .orderBy('nombre')
+        .get();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'id': doc.id,
+        'nombre': (data['nombre'] ?? '').toString(),
+        'codigo': (data['codigo'] ?? '').toString(),
+      };
+    }).toList();
   }
 
   Future<void> _guardarActividad({String? docId}) async {
@@ -74,6 +100,9 @@ class _CalendarPageState extends State<CalendarPage> {
       'tipo': _selectedTipo,
       'descripcion': _descripcionController.text.trim(),
       'colaborador': _selectedColaborador,
+      // NUEVO: persistir cliente
+      'clienteId': _selectedClienteId,
+      'clienteNombre': _selectedClienteNombre ?? '',
       'ubicacion': _ubicacionUrl ?? '',
       'lat': _ubicacionLatLng?.latitude,
       'lng': _ubicacionLatLng?.longitude,
@@ -102,6 +131,10 @@ class _CalendarPageState extends State<CalendarPage> {
       _selectedTime = null;
       _selectedTipo = 'Levantamiento tecnico';
       _selectedColaborador = null;
+      // reset cliente
+      _selectedClienteId = null;
+      _selectedClienteNombre = null;
+
       _descripcionController.clear();
       _direccionController.clear();
       _ubicacionLatLng = null;
@@ -121,6 +154,11 @@ class _CalendarPageState extends State<CalendarPage> {
       _selectedTime = TimeOfDay(hour: fecha.hour, minute: fecha.minute);
       _selectedTipo = actividad['tipo'] ?? 'Levantamiento tecnico';
       _selectedColaborador = actividad['colaborador'];
+
+      // Cargar cliente si existe
+      _selectedClienteId = actividad['clienteId'];
+      _selectedClienteNombre = actividad['clienteNombre'];
+
       _descripcionController.text = actividad['descripcion'] ?? '';
       _ubicacionUrl = actividad['ubicacion'];
       _ubicacionUrlController.text = _ubicacionUrl ?? '';
@@ -128,8 +166,8 @@ class _CalendarPageState extends State<CalendarPage> {
       _direccionController.text = _direccionManual ?? '';
       if (actividad['lat'] != null && actividad['lng'] != null) {
         _ubicacionLatLng = latlng.LatLng(
-          actividad['lat'] as double,
-          actividad['lng'] as double,
+          (actividad['lat'] as num).toDouble(),
+          (actividad['lng'] as num).toDouble(),
         );
       } else {
         _ubicacionLatLng = null;
@@ -139,7 +177,13 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   void _mostrarDialogoActividad({String? docId}) async {
-    final colaboradores = await _getColaboradores();
+    // Obtener colaboradores y clientes en paralelo tipando Future.wait
+    final results = await Future.wait<List<Map<String, dynamic>>>([
+      _getColaboradores(),
+      _getClientes(),
+    ]);
+    final colaboradores = results[0];
+    final clientes = results[1];
 
     if (docId == null) {
       _selectedDate ??= DateTime.now();
@@ -196,6 +240,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 18),
+
+                      // Fecha
                       ListTile(
                         leading: const Icon(
                           Icons.calendar_today,
@@ -239,6 +285,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         tileColor: Colors.grey[100],
                       ),
                       const SizedBox(height: 8),
+
+                      // Hora
                       ListTile(
                         leading: const Icon(
                           Icons.access_time,
@@ -279,6 +327,59 @@ class _CalendarPageState extends State<CalendarPage> {
                         tileColor: Colors.grey[100],
                       ),
                       const SizedBox(height: 8),
+
+                      // NUEVO: Selector de Cliente (arriba de Tipo de trabajo)
+                      DropdownButtonFormField<String>(
+                        value:
+                            (clientes.any((c) => c['id'] == _selectedClienteId))
+                            ? _selectedClienteId
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: 'Cliente',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                        ),
+                        items: clientes
+                            .map<DropdownMenuItem<String>>(
+                              (cliente) => DropdownMenuItem<String>(
+                                value: cliente['id'] as String,
+                                child: Text(
+                                  [
+                                    if ((cliente['nombre'] ?? '')
+                                        .toString()
+                                        .isNotEmpty)
+                                      (cliente['nombre'] ?? '').toString(),
+                                    if ((cliente['codigo'] ?? '')
+                                        .toString()
+                                        .isNotEmpty)
+                                      '(${(cliente['codigo'] ?? '').toString()})',
+                                  ].join(' '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setStateDialog(() {
+                            _selectedClienteId = val;
+                            final found = clientes.firstWhere(
+                              (c) => c['id'] == val,
+                              orElse: () => {'nombre': ''},
+                            );
+                            // Remove unnecessary cast by using toString()
+                            _selectedClienteNombre = (found['nombre'] ?? '')
+                                .toString();
+                          });
+                        },
+                        menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Tipo de trabajo
                       DropdownButtonFormField<String>(
                         value: _selectedTipo,
                         decoration: InputDecoration(
@@ -489,6 +590,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
+
+                      // Descripción
                       TextField(
                         controller: _descripcionController,
                         maxLines: 3,
@@ -502,6 +605,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
+
+                      // Dirección + búsqueda
                       TextField(
                         controller: _direccionController,
                         decoration: InputDecoration(
@@ -571,6 +676,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         },
                       ),
                       const SizedBox(height: 8),
+
+                      // Colaborador
                       DropdownButtonFormField<String>(
                         value: _selectedColaborador,
                         decoration: InputDecoration(
@@ -589,7 +696,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         items: colaboradores
                             .map<DropdownMenuItem<String>>(
                               (col) => DropdownMenuItem<String>(
-                                value: col['email'],
+                                value: col['email'] as String,
                                 child: Text('${col['name']} (${col['email']})'),
                               ),
                             )
@@ -597,6 +704,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         menuMaxHeight: MediaQuery.of(context).size.height * 0.4,
                       ),
                       const SizedBox(height: 8),
+
+                      // URL de Maps + picker
                       Row(
                         children: [
                           Expanded(
@@ -652,6 +761,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         ],
                       ),
                       const SizedBox(height: 18),
+
+                      // Acciones
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -714,7 +825,6 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   // --- FUNCION NUEVA PARA SIEMPRE ABRIR GOOGLE MAPS ---
-
   String _construirEnlaceMaps(String ubicacion) {
     final urlPattern = RegExp(r'^(http|https):\/\/');
     final latLngPattern = RegExp(r'^\s*-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+\s*$');
@@ -769,7 +879,7 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ),
         child: SafeArea(
-          child: StreamBuilder<QuerySnapshot>(
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('actividades')
                 .orderBy('fecha')
@@ -779,8 +889,9 @@ class _CalendarPageState extends State<CalendarPage> {
                 return const Center(child: CircularProgressIndicator());
               }
               final actividades = snapshot.data!.docs;
+
               final actividadesFiltradas = actividades.where((doc) {
-                final data = doc.data() as Map<String, dynamic>;
+                final data = doc.data();
                 return data['estado'] != 'terminada';
               }).toList();
 
@@ -796,11 +907,12 @@ class _CalendarPageState extends State<CalendarPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: actividadesFiltradas.length,
                 itemBuilder: (context, index) {
-                  final actividad =
-                      actividadesFiltradas[index].data()
-                          as Map<String, dynamic>;
+                  final actividad = actividadesFiltradas[index].data();
                   final docId = actividadesFiltradas[index].id;
                   final fecha = (actividad['fecha'] as Timestamp).toDate();
+                  final clienteNombre =
+                      (actividad['clienteNombre'] ?? '') as String;
+
                   return Card(
                     elevation: 8,
                     shape: RoundedRectangleBorder(
@@ -838,6 +950,29 @@ class _CalendarPageState extends State<CalendarPage> {
                             ),
                           ),
                           const SizedBox(height: 4),
+                          if (clienteNombre.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.person,
+                                    color: Colors.indigo,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      'Cliente: $clienteNombre',
+                                      style: const TextStyle(
+                                        color: Colors.indigo,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           Text(
                             actividad['descripcion'] ?? '',
                             style: const TextStyle(color: Colors.black54),
@@ -954,6 +1089,11 @@ class _CalendarPageState extends State<CalendarPage> {
             _selectedTime = TimeOfDay.now();
             _selectedTipo = 'Levantamiento tecnico';
             _selectedColaborador = null;
+
+            // reset cliente
+            _selectedClienteId = null;
+            _selectedClienteNombre = null;
+
             _descripcionController.clear();
             _direccionController.clear();
             _ubicacionLatLng = null;

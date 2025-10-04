@@ -1,10 +1,10 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+// ignore_for_file: use_build_context_synchronously
 
 class ColaboradorActividadesScreen extends StatefulWidget {
   const ColaboradorActividadesScreen({super.key});
@@ -17,6 +17,9 @@ class ColaboradorActividadesScreen extends StatefulWidget {
 class _ColaboradorActividadesScreenState
     extends State<ColaboradorActividadesScreen> {
   String? get userEmail => FirebaseAuth.instance.currentUser?.email;
+
+  // Cache en memoria para no repetir lecturas a /clientes
+  final Map<String, String> _clienteCache = {};
 
   String _construirEnlaceMaps(String ubicacion) {
     final urlPattern = RegExp(r'^(http|https):\/\/');
@@ -50,10 +53,41 @@ class _ColaboradorActividadesScreenState
     }
   }
 
+  /// Fallback: dado un clienteId, obtiene el nombre desde /clientes y lo cachea.
+  Future<String?> _getClienteNombreFromId(String? clienteId) async {
+    if (clienteId == null || clienteId.isEmpty) return null;
+    if (_clienteCache.containsKey(clienteId)) {
+      return _clienteCache[clienteId];
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('clientes')
+          .doc(clienteId)
+          .get();
+      if (doc.exists) {
+        final data = doc.data() ?? {};
+        final nombre = (data['nombre'] ?? '').toString();
+        final codigo = (data['codigo'] ?? '').toString();
+        final display = nombre.isNotEmpty
+            ? nombre
+            : (codigo.isNotEmpty ? codigo : null);
+        if (display != null) {
+          _clienteCache[clienteId] = display;
+        }
+        return display;
+      }
+    } catch (_) {
+      // Silenciar errores de red/permiso; simplemente no mostramos nombre.
+    }
+    return null;
+  }
+
   /// Solo muestra actividades asignadas de hoy, aún no terminadas.
-  Stream<QuerySnapshot> getActividadesDeHoy(String? email) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getActividadesDeHoy(
+    String? email,
+  ) {
     if (email == null) {
-      return const Stream.empty();
+      return const Stream<QuerySnapshot<Map<String, dynamic>>>.empty();
     }
     final ahora = DateTime.now();
     final desde = DateTime(ahora.year, ahora.month, ahora.day, 0, 0, 0);
@@ -98,7 +132,7 @@ class _ColaboradorActividadesScreenState
     }
     return Scaffold(
       appBar: AppBar(title: const Text('Mis actividades')),
-      body: StreamBuilder<QuerySnapshot>(
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: getActividadesDeHoy(userEmail),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -120,14 +154,20 @@ class _ColaboradorActividadesScreenState
             itemCount: actividades.length,
             itemBuilder: (context, index) {
               final doc = actividades[index];
-              final actividad = doc.data() as Map<String, dynamic>;
+              final actividad = doc.data();
               final docId = doc.id;
               final fecha = (actividad['fecha'] as Timestamp?)?.toDate();
-              final ubicacion = actividad['ubicacion'] ?? '';
-              final direccionManual = actividad['direccion_manual'] ?? '';
-              final estado = actividad['estado'] ?? '';
+              final ubicacion = (actividad['ubicacion'] ?? '').toString();
+              final direccionManual = (actividad['direccion_manual'] ?? '')
+                  .toString();
+              final estado = (actividad['estado'] ?? '').toString();
               final esColaboradorAsignado =
                   actividad['colaborador'] == userEmail;
+
+              // Cliente: preferimos el clienteNombre ya guardado; si no hay, buscamos por clienteId
+              final clienteNombreGuardado = (actividad['clienteNombre'] ?? '')
+                  .toString();
+              final clienteId = (actividad['clienteId'] ?? '').toString();
 
               Color estadoColor;
               switch (estado) {
@@ -185,8 +225,44 @@ class _ColaboradorActividadesScreenState
                           ),
                         ),
                       const SizedBox(height: 4),
+
+                      // Mostrar cliente: guardado o fetched por clienteId
+                      if (clienteNombreGuardado.isNotEmpty)
+                        _ClienteRow(nombre: clienteNombreGuardado)
+                      else if (clienteId.isNotEmpty)
+                        FutureBuilder<String?>(
+                          future: _getClienteNombreFromId(clienteId),
+                          builder: (context, snap) {
+                            final nombre = (snap.data ?? '').toString();
+                            if (nombre.isNotEmpty) {
+                              return _ClienteRow(nombre: nombre);
+                            }
+                            // Opcional: placeholder mientras carga
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Padding(
+                                padding: EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text('Cargando cliente...'),
+                                  ],
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+
                       Text(
-                        actividad['descripcion'] ?? '',
+                        (actividad['descripcion'] ?? '').toString(),
                         style: const TextStyle(color: Colors.black54),
                       ),
                       if (direccionManual.isNotEmpty)
@@ -356,6 +432,31 @@ class _ColaboradorActividadesScreenState
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _ClienteRow extends StatelessWidget {
+  final String nombre;
+  const _ClienteRow({required this.nombre});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.person, color: Colors.indigo, size: 18),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              'Cliente: $nombre',
+              style: const TextStyle(color: Colors.indigo),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
