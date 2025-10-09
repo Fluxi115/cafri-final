@@ -1,9 +1,11 @@
+import 'package:cafri/colaborador/pdf_cliente.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: use_build_context_synchronously
 
 class ColaboradorActividadesScreen extends StatefulWidget {
@@ -18,22 +20,20 @@ class _ColaboradorActividadesScreenState
     extends State<ColaboradorActividadesScreen> {
   String? get userEmail => FirebaseAuth.instance.currentUser?.email;
 
-  // Cache en memoria para no repetir lecturas a /clientes
   final Map<String, String> _clienteCache = {};
 
   String _construirEnlaceMaps(String ubicacion) {
     final urlPattern = RegExp(r'^(http|https):\/\/');
     final latLngPattern = RegExp(r'^\s*-?\d{1,3}\.\d+,\s*-?\d{1,3}\.\d+\s*$');
     final placeIdPattern = RegExp(r'^[A-Za-z0-9_-]{27}$');
-    if (urlPattern.hasMatch(ubicacion)) {
-      return ubicacion;
-    } else if (latLngPattern.hasMatch(ubicacion)) {
-      return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(ubicacion)}';
-    } else if (placeIdPattern.hasMatch(ubicacion)) {
-      return 'https://www.google.com/maps/search/?api=1&query=place_id:${Uri.encodeComponent(ubicacion)}';
-    } else {
+    if (urlPattern.hasMatch(ubicacion)) return ubicacion;
+    if (latLngPattern.hasMatch(ubicacion)) {
       return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(ubicacion)}';
     }
+    if (placeIdPattern.hasMatch(ubicacion)) {
+      return 'https://www.google.com/maps/search/?api=1&query=place_id:${Uri.encodeComponent(ubicacion)}';
+    }
+    return 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(ubicacion)}';
   }
 
   Future<void> _abrirUbicacionEnMaps(
@@ -53,12 +53,34 @@ class _ColaboradorActividadesScreenState
     }
   }
 
-  /// Fallback: dado un clienteId, obtiene el nombre desde /clientes y lo cachea.
+  // Helpers para extraer datos del cliente desde el documento de actividad
+  String _obtenerNombreClienteSinFetch(Map<String, dynamic> actividad) {
+    final cliente = actividad['cliente'];
+    if (cliente is Map<String, dynamic>) {
+      final nombre = (cliente['nombre'] ?? '').toString().trim();
+      if (nombre.isNotEmpty) return nombre;
+      final codigo = (cliente['codigo'] ?? '').toString().trim();
+      if (codigo.isNotEmpty) return codigo;
+    }
+    final guardado = (actividad['clienteNombre'] ?? '').toString().trim();
+    if (guardado.isNotEmpty) return guardado;
+    return '';
+  }
+
+  String? _obtenerClienteId(Map<String, dynamic> actividad) {
+    final cliente = actividad['cliente'];
+    if (cliente is Map<String, dynamic>) {
+      final id = (cliente['id'] ?? '').toString().trim();
+      if (id.isNotEmpty) return id;
+    }
+    final idAlt = (actividad['clienteId'] ?? '').toString().trim();
+    if (idAlt.isNotEmpty) return idAlt;
+    return null;
+  }
+
   Future<String?> _getClienteNombreFromId(String? clienteId) async {
     if (clienteId == null || clienteId.isEmpty) return null;
-    if (_clienteCache.containsKey(clienteId)) {
-      return _clienteCache[clienteId];
-    }
+    if (_clienteCache.containsKey(clienteId)) return _clienteCache[clienteId];
     try {
       final doc = await FirebaseFirestore.instance
           .collection('clientes')
@@ -71,18 +93,25 @@ class _ColaboradorActividadesScreenState
         final display = nombre.isNotEmpty
             ? nombre
             : (codigo.isNotEmpty ? codigo : null);
-        if (display != null) {
-          _clienteCache[clienteId] = display;
-        }
+        if (display != null) _clienteCache[clienteId] = display;
         return display;
       }
-    } catch (_) {
-      // Silenciar errores de red/permiso; simplemente no mostramos nombre.
-    }
+    } catch (_) {}
     return null;
   }
 
-  /// Solo muestra actividades asignadas de hoy, aún no terminadas.
+  Future<String> _resolverNombreCliente(Map<String, dynamic> actividad) async {
+    // 1) Prioriza el nombre/código embebido en actividad.cliente
+    final inline = _obtenerNombreClienteSinFetch(actividad);
+    if (inline.isNotEmpty) return inline;
+
+    // 2) Fallback: intenta por id (en cliente.id o clienteId) contra colección 'clientes'
+    final clienteId = _obtenerClienteId(actividad);
+    if (clienteId == null || clienteId.isEmpty) return '';
+    final fetched = await _getClienteNombreFromId(clienteId);
+    return (fetched ?? '').trim();
+  }
+
   Stream<QuerySnapshot<Map<String, dynamic>>> getActividadesDeHoy(
     String? email,
   ) {
@@ -92,7 +121,6 @@ class _ColaboradorActividadesScreenState
     final ahora = DateTime.now();
     final desde = DateTime(ahora.year, ahora.month, ahora.day, 0, 0, 0);
     final hasta = DateTime(ahora.year, ahora.month, ahora.day, 23, 59, 59);
-
     return FirebaseFirestore.instance
         .collection('actividades')
         .where('colaborador', isEqualTo: email)
@@ -164,10 +192,11 @@ class _ColaboradorActividadesScreenState
               final esColaboradorAsignado =
                   actividad['colaborador'] == userEmail;
 
-              // Cliente: preferimos el clienteNombre ya guardado; si no hay, buscamos por clienteId
-              final clienteNombreGuardado = (actividad['clienteNombre'] ?? '')
-                  .toString();
-              final clienteId = (actividad['clienteId'] ?? '').toString();
+              // Nuevo: prioriza nombre desde actividad.cliente
+              final nombreClienteInline = _obtenerNombreClienteSinFetch(
+                actividad,
+              );
+              final clienteId = _obtenerClienteId(actividad);
 
               Color estadoColor;
               switch (estado) {
@@ -226,10 +255,10 @@ class _ColaboradorActividadesScreenState
                         ),
                       const SizedBox(height: 4),
 
-                      // Mostrar cliente: guardado o fetched por clienteId
-                      if (clienteNombreGuardado.isNotEmpty)
-                        _ClienteRow(nombre: clienteNombreGuardado)
-                      else if (clienteId.isNotEmpty)
+                      // Mostrar nombre de cliente:
+                      if (nombreClienteInline.isNotEmpty)
+                        _ClienteRow(nombre: nombreClienteInline)
+                      else if (clienteId != null && clienteId.isNotEmpty)
                         FutureBuilder<String?>(
                           future: _getClienteNombreFromId(clienteId),
                           builder: (context, snap) {
@@ -237,7 +266,6 @@ class _ColaboradorActividadesScreenState
                             if (nombre.isNotEmpty) {
                               return _ClienteRow(nombre: nombre);
                             }
-                            // Opcional: placeholder mientras carga
                             if (snap.connectionState ==
                                 ConnectionState.waiting) {
                               return const Padding(
@@ -400,6 +428,34 @@ class _ColaboradorActividadesScreenState
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Actividad terminada'),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.picture_as_pdf),
+                                  label: const Text('Generar PDF'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                  onPressed: () async {
+                                    final nombreCliente =
+                                        await _resolverNombreCliente(actividad);
+                                    final tipoTrabajo =
+                                        (actividad['tipo'] ?? '').toString();
+
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => FormularioPDF(
+                                          initialNombreCliente:
+                                              nombreCliente.isNotEmpty
+                                              ? nombreCliente
+                                              : null,
+                                          initialAtencion:
+                                              tipoTrabajo.isNotEmpty
+                                              ? tipoTrabajo
+                                              : null,
+                                        ),
                                       ),
                                     );
                                   },

@@ -137,11 +137,15 @@ class HojaServicioData {
 }
 
 class FormularioPDF extends StatefulWidget {
+  // Se agregan valores iniciales para prellenar campos
   const FormularioPDF({
     super.key,
-    String? campoNombreCliente,
-    String? atencion,
+    this.initialNombreCliente,
+    this.initialAtencion,
   });
+
+  final String? initialNombreCliente;
+  final String? initialAtencion;
 
   @override
   State<FormularioPDF> createState() => _FormularioPDFState();
@@ -162,6 +166,16 @@ class _FormularioPDFState extends State<FormularioPDF> {
   void initState() {
     super.initState();
     _cargarFolio();
+
+    // Prefill desde los parámetros del widget (si vienen)
+    final n = widget.initialNombreCliente;
+    final a = widget.initialAtencion;
+    if (n != null && n.isNotEmpty) {
+      campoNombreCliente.text = n;
+    }
+    if (a != null && a.isNotEmpty) {
+      atencion.text = a;
+    }
   }
 
   @override
