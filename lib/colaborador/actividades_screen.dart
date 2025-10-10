@@ -192,11 +192,15 @@ class _ColaboradorActividadesScreenState
               final esColaboradorAsignado =
                   actividad['colaborador'] == userEmail;
 
-              // Nuevo: prioriza nombre desde actividad.cliente
+              // Prioriza nombre desde actividad.cliente
               final nombreClienteInline = _obtenerNombreClienteSinFetch(
                 actividad,
               );
               final clienteId = _obtenerClienteId(actividad);
+
+              // Flag: PDF generado
+              final bool pdfGenerado =
+                  actividad['pdf_generado'] == true; // por defecto false
 
               Color estadoColor;
               switch (estado) {
@@ -432,33 +436,71 @@ class _ColaboradorActividadesScreenState
                                     );
                                   },
                                 ),
+                                // Botón de PDF con bloqueo si ya fue generado
                                 ElevatedButton.icon(
-                                  icon: const Icon(Icons.picture_as_pdf),
-                                  label: const Text('Generar PDF'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.redAccent,
+                                  icon: Icon(
+                                    pdfGenerado
+                                        ? Icons.picture_as_pdf_outlined
+                                        : Icons.picture_as_pdf,
                                   ),
-                                  onPressed: () async {
-                                    final nombreCliente =
-                                        await _resolverNombreCliente(actividad);
-                                    final tipoTrabajo =
-                                        (actividad['tipo'] ?? '').toString();
+                                  label: Text(
+                                    pdfGenerado
+                                        ? 'PDF generado'
+                                        : 'Generar PDF',
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: pdfGenerado
+                                        ? Colors.grey
+                                        : Colors.redAccent,
+                                  ),
+                                  onPressed: pdfGenerado
+                                      ? null
+                                      : () async {
+                                          final nombreCliente =
+                                              await _resolverNombreCliente(
+                                                actividad,
+                                              );
+                                          final tipoTrabajo =
+                                              (actividad['tipo'] ?? '')
+                                                  .toString();
 
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => FormularioPDF(
-                                          initialNombreCliente:
-                                              nombreCliente.isNotEmpty
-                                              ? nombreCliente
-                                              : null,
-                                          initialAtencion:
-                                              tipoTrabajo.isNotEmpty
-                                              ? tipoTrabajo
-                                              : null,
-                                        ),
-                                      ),
-                                    );
-                                  },
+                                          final result =
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) => FormularioPDF(
+                                                    initialNombreCliente:
+                                                        nombreCliente.isNotEmpty
+                                                        ? nombreCliente
+                                                        : null,
+                                                    initialAtencion:
+                                                        tipoTrabajo.isNotEmpty
+                                                        ? tipoTrabajo
+                                                        : null,
+                                                  ),
+                                                ),
+                                              );
+
+                                          // Espera un true desde FormularioPDF cuando se genere correctamente
+                                          if (result == true) {
+                                            await FirebaseFirestore.instance
+                                                .collection('actividades')
+                                                .doc(docId)
+                                                .update({
+                                                  'pdf_generado': true,
+                                                  'pdf_generado_at':
+                                                      Timestamp.now(),
+                                                });
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'PDF generado. El botón ha sido bloqueado.',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
                                 ),
                               ],
                               if (estado == 'pausada')
